@@ -1,0 +1,195 @@
+[gd_scene load_steps=3 format=3 uid="uid://cb8muxjrnqghi"]
+
+[ext_resource type="Script" path="res://Scripts/UI/MainUI.gd" id="1_8x7nh"]
+
+[sub_resource type="Environment" id="Environment_1rv37"]
+background_mode = 1
+background_color = Color(0.2, 0.3, 0.5, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.3
+
+[node name="Main" type="Node3D"]
+
+[node name="Environment" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
+environment = SubResource("Environment_1rv37")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Environment"]
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 10, 0)
+light_energy = 1.0
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="Environment"]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Environment/Ground"]
+transform = Transform3D(50, 0, 0, 0, 1, 0, 0, 0, 50, 0, 0, 0)
+mesh = BoxMesh()
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Environment/Ground"]
+transform = Transform3D(50, 0, 0, 0, 1, 0, 0, 0, 50, 0, 0, 0)
+shape = BoxShape3D()
+
+[node name="UI" type="CanvasLayer" parent="."]
+script = ExtResource("1_8x7nh")
+
+[node name="Background" type="ColorRect" parent="UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.3)
+mouse_filter = 2
+
+[node name="MainMenu" type="VBoxContainer" parent="UI"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -200.0
+offset_right = 150.0
+offset_bottom = 200.0
+
+[node name="Title" type="Label" parent="UI/MainMenu"]
+layout_mode = 2
+text = "GTA-Style Multiplayer Game"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="UI/MainMenu"]
+layout_mode = 2
+text = "MVP Testing Build"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="ServerSection" type="VBoxContainer" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="ServerLabel" type="Label" parent="UI/MainMenu/ServerSection"]
+layout_mode = 2
+text = "Host Server"
+horizontal_alignment = 1
+
+[node name="PortInput" type="LineEdit" parent="UI/MainMenu/ServerSection"]
+layout_mode = 2
+placeholder_text = "Port (default: 8080)"
+text = "8080"
+
+[node name="StartServerButton" type="Button" parent="UI/MainMenu/ServerSection"]
+layout_mode = 2
+text = "Start Server"
+
+[node name="HSeparator2" type="HSeparator" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="ClientSection" type="VBoxContainer" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="ClientLabel" type="Label" parent="UI/MainMenu/ClientSection"]
+layout_mode = 2
+text = "Join Server"
+horizontal_alignment = 1
+
+[node name="AddressInput" type="LineEdit" parent="UI/MainMenu/ClientSection"]
+layout_mode = 2
+placeholder_text = "Server Address (e.g., 127.0.0.1)"
+text = "127.0.0.1"
+
+[node name="ClientPortInput" type="LineEdit" parent="UI/MainMenu/ClientSection"]
+layout_mode = 2
+placeholder_text = "Port (default: 8080)"
+text = "8080"
+
+[node name="ConnectButton" type="Button" parent="UI/MainMenu/ClientSection"]
+layout_mode = 2
+text = "Connect to Server"
+
+[node name="HSeparator3" type="HSeparator" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="StatusSection" type="VBoxContainer" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="StatusLabel" type="Label" parent="UI/MainMenu/StatusSection"]
+layout_mode = 2
+text = "Status: Not Connected"
+horizontal_alignment = 1
+
+[node name="PlayersLabel" type="Label" parent="UI/MainMenu/StatusSection"]
+layout_mode = 2
+text = "Players: 0/4"
+horizontal_alignment = 1
+
+[node name="HSeparator4" type="HSeparator" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="ActionSection" type="VBoxContainer" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="DisconnectButton" type="Button" parent="UI/MainMenu/ActionSection"]
+layout_mode = 2
+text = "Disconnect"
+
+[node name="TestMessageButton" type="Button" parent="UI/MainMenu/ActionSection"]
+layout_mode = 2
+text = "Send Test Message"
+
+[node name="HSeparator5" type="HSeparator" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="DebugSection" type="VBoxContainer" parent="UI/MainMenu"]
+layout_mode = 2
+
+[node name="DebugLabel" type="Label" parent="UI/MainMenu/DebugSection"]
+layout_mode = 2
+text = "Debug (F1=Server, F2=Connect, F3=Disconnect)"
+horizontal_alignment = 1
+
+[node name="GameHUD" type="Control" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TopLeft" type="VBoxContainer" parent="UI/GameHUD"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -100.0
+offset_right = 300.0
+offset_bottom = -10.0
+
+[node name="ConnectionStatus" type="Label" parent="UI/GameHUD/TopLeft"]
+layout_mode = 2
+text = "Connected"
+
+[node name="PlayerCount" type="Label" parent="UI/GameHUD/TopLeft"]
+layout_mode = 2
+text = "Players: 1/4"
+
+[node name="NetworkStats" type="Label" parent="UI/GameHUD/TopLeft"]
+layout_mode = 2
+text = "Ping: 0ms | Sent: 0KB | Received: 0KB"
+
+[node name="TopRight" type="VBoxContainer" parent="UI/GameHUD"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -310.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 100.0
+
+[node name="Instructions" type="Label" parent="UI/GameHUD/TopRight"]
+layout_mode = 2
+text = "WASD: Move | Mouse: Look | E: Interact | F3: Disconnect"
+horizontal_alignment = 2
+
+[connection signal="pressed" from="UI/MainMenu/ServerSection/StartServerButton" to="UI" method="_on_start_server_button_pressed"]
+[connection signal="pressed" from="UI/MainMenu/ClientSection/ConnectButton" to="UI" method="_on_connect_button_pressed"]
+[connection signal="pressed" from="UI/MainMenu/ActionSection/DisconnectButton" to="UI" method="_on_disconnect_button_pressed"]
+[connection signal="pressed" from="UI/MainMenu/ActionSection/TestMessageButton" to="UI" method="_on_test_message_button_pressed"] 

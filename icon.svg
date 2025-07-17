@@ -1,0 +1,5 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" fill="#478cbf"/>
+  <circle cx="64" cy="64" r="50" fill="#ffffff"/>
+  <text x="64" y="72" text-anchor="middle" fill="#478cbf" font-family="Arial" font-size="24" font-weight="bold">GTA</text>
+</svg> 
