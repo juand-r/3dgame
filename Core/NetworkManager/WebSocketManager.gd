@@ -30,6 +30,7 @@ var max_connections: int = 4
 # Connection management
 var connected_clients: Dictionary = {}  # id -> connection_info
 var next_client_id: int = 2  # Server is always ID 1
+var client_id: int = -1  # For client connections, stores our assigned ID
 var connection_timeout: float = 30.0
 
 # Statistics
@@ -371,6 +372,15 @@ func print_debug_info():
 			GameEvents.log_debug("Client %d ping: %d ms" % [client_id, ping])
 
 # Test function for development
+func get_unique_id() -> int:
+	if is_server:
+		return 1  # Server is always ID 1
+	elif is_client:
+		# For client, get ID from multiplayer peer
+		if websocket_client and websocket_client.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+			return websocket_client.get_unique_id()
+	return -1
+
 func send_test_message():
 	var test_data = {
 		"type": "chat_message",

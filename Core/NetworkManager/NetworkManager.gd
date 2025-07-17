@@ -84,6 +84,11 @@ func is_connected_to_server() -> bool:
 func is_game_connected() -> bool:
 	return is_server_running() or is_connected_to_server()
 
+func get_unique_id() -> int:
+	if _implementation:
+		return _implementation.get_unique_id()
+	return -1
+
 # ============================================================================
 # EVENT FORWARDING
 # ============================================================================

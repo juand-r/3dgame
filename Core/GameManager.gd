@@ -48,6 +48,7 @@ func _ready():
 	GameEvents.player_joined.connect(_on_player_joined)
 	GameEvents.player_left.connect(_on_player_left)
 	GameEvents.player_spawned.connect(_on_player_spawned)
+	GameEvents.player_position_updated.connect(_on_player_position_updated)
 	GameEvents.network_error.connect(_on_network_error)
 	
 	# Connect to world events
@@ -146,6 +147,8 @@ func connect_to_server(address: String, port: int = 8080) -> bool:
 		GameEvents.log_info("Connected to server successfully")
 		# Client transitions to IN_GAME after successful connection
 		change_state(GameState.IN_GAME)
+		# Load world and spawn client's local player
+		setup_client_world()
 	else:
 		GameEvents.log_error("Failed to connect to server")
 		change_state(GameState.MENU)
@@ -359,9 +362,51 @@ func _on_player_left(player_id: int, player_name: String):
 func _on_player_spawned(player_id: int, position: Vector3):
 	spawn_player(player_id, position)
 
+func _on_player_position_updated(player_id: int, position: Vector3, rotation: Vector3, velocity: Vector3):
+	"""Handle position updates from remote players"""
+	# Don't process updates for our own player (avoid feedback loop)
+	if player_id == local_player_id:
+		return
+		
+	# Ensure we have this player spawned
+	if player_id not in spawned_players:
+		GameEvents.log_info("Creating remote player %d from position update" % player_id)
+		# Create player data if it doesn't exist
+		if player_id not in connected_players:
+			add_player(player_id, "Remote Player %d" % player_id)
+		# Spawn the player
+		spawn_player(player_id, position)
+		return
+	
+	# Apply position update to existing remote player
+	var remote_player = spawned_players[player_id]
+	if remote_player and not remote_player.is_local_player:
+		remote_player.apply_remote_position_update(position, rotation, velocity)
+		GameEvents.log_debug("Applied position update to remote player %d: %s" % [player_id, position])
+
 func _on_network_error(error_message: String):
 	GameEvents.log_error("Network error: %s" % error_message)
 	change_state(GameState.DISCONNECTED)
+
+func setup_client_world():
+	"""Setup world and spawn local player for client"""
+	GameEvents.log_info("Setting up client world")
+	
+	# Load the world scene for client
+	load_game_world()
+	
+	# Get client player ID from NetworkManager
+	var client_id = NetworkManager.get_unique_id()
+	local_player_id = client_id
+	
+	GameEvents.log_info("Client player ID: %d" % client_id)
+	
+	# Add client as player
+	add_player(client_id, "Client Player")
+	
+	# Spawn the client's local player
+	var spawn_pos = get_next_spawn_point() 
+	spawn_player(client_id, spawn_pos)
 
 func _on_world_loaded():
 	GameEvents.log_info("World loaded successfully")
