@@ -98,7 +98,12 @@ func start_server(port: int = 8080) -> bool:
 	add_player(local_player_id, local_player_name)
 	
 	# Tell NetworkManager to start server
-	var success = NetworkManager.start_server(port)
+	var success = false
+	if NetworkManager:
+		success = NetworkManager.start_server(port)
+	else:
+		GameEvents.log_error("NetworkManager not available")
+		success = false
 	
 	if success:
 		is_server = true
@@ -116,7 +121,8 @@ func stop_server():
 	
 	GameEvents.log_info("Stopping server")
 	
-	NetworkManager.stop_server()
+	if NetworkManager:
+		NetworkManager.stop_server()
 	cleanup_connections()
 	change_state(GameState.MENU)
 
@@ -133,7 +139,11 @@ func connect_to_server(address: String, port: int = 8080) -> bool:
 	
 	change_state(GameState.CONNECTING)
 	
-	var success = NetworkManager.connect_to_server(address, port)
+	var success = false
+	if NetworkManager:
+		success = NetworkManager.connect_to_server(address, port)
+	else:
+		GameEvents.log_error("NetworkManager not available")
 	
 	if success:
 		is_client = true
@@ -150,7 +160,8 @@ func disconnect_from_server():
 	
 	GameEvents.log_info("Disconnecting from server")
 	
-	NetworkManager.disconnect_from_server()
+	if NetworkManager:
+		NetworkManager.disconnect_from_server()
 	cleanup_connections()
 	change_state(GameState.MENU)
 

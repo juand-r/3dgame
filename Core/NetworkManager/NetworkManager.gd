@@ -63,7 +63,8 @@ func _ready():
 func _setup_implementation():
 	# For now, always use WebSocket implementation
 	# Later we can make this configurable
-	_implementation = WebSocketManager.new()
+	var websocket_script = preload("res://Core/NetworkManager/WebSocketManager.gd")
+	_implementation = websocket_script.new()
 	add_child(_implementation)
 	
 	# Connect implementation signals to our signals
