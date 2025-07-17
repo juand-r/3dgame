@@ -3,7 +3,8 @@
 [sub_resource type="BoxMesh" id="BoxMesh_1"]
 size = Vector3(50, 1, 50)
 
-[sub_resource type="StaticBody3D" id="StaticBody3D_1"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_1"]
+size = Vector3(50, 1, 50)
 
 [node name="TestWorld" type="Node3D"]
 
@@ -13,7 +14,7 @@ mesh = SubResource("BoxMesh_1")
 [node name="StaticBody3D" type="StaticBody3D" parent="Ground"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ground/StaticBody3D"]
-shape = SubResource("BoxMesh_1")
+shape = SubResource("BoxShape3D_1")
 
 [node name="SpawnPoints" type="Node3D" parent="."]
 

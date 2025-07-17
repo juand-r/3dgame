@@ -1,7 +1,6 @@
 # WebSocketManager.gd - WebSocket Networking Implementation
 # Handles WebSocket server/client functionality for multiplayer networking
 extends Node
-class_name WebSocketManager
 
 # ============================================================================
 # SIGNALS
@@ -38,6 +37,9 @@ var bytes_sent: int = 0
 var bytes_received: int = 0
 var last_ping_time: Dictionary = {}
 
+# Connection state tracking
+var _has_logged_connection: bool = false
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
@@ -54,6 +56,7 @@ func _process(_delta):
 	elif is_client and websocket_client:
 		websocket_client.poll()
 		_check_client_connection()
+		_check_client_status()
 
 # ============================================================================
 # SERVER MANAGEMENT
@@ -85,7 +88,6 @@ func start_server(port: int) -> bool:
 	# Connect signals
 	websocket_server.peer_connected.connect(_on_server_peer_connected)
 	websocket_server.peer_disconnected.connect(_on_server_peer_disconnected)
-	websocket_server.connection_failed.connect(_on_server_connection_failed)
 	
 	GameEvents.log_info("WebSocket: Server started successfully on port %d" % port)
 	server_started_successfully.emit(port)
@@ -140,11 +142,10 @@ func connect_to_server(address: String, port: int) -> bool:
 	
 	# Set up client
 	is_client = true
+	_has_logged_connection = false  # Reset connection logging flag
 	
-	# Connect signals
-	websocket_client.connection_succeeded.connect(_on_client_connection_succeeded)
-	websocket_client.connection_failed.connect(_on_client_connection_failed)
-	websocket_client.server_disconnected.connect(_on_client_server_disconnected)
+	# Connect signals (Note: WebSocketMultiplayerPeer uses different signals in Godot 4.4)
+	# We'll monitor connection status via polling instead
 	
 	return true
 
@@ -160,6 +161,7 @@ func disconnect_from_server():
 		websocket_client = null
 	
 	is_client = false
+	_has_logged_connection = false  # Reset connection logging flag
 
 # ============================================================================
 # DATA TRANSMISSION
@@ -219,6 +221,25 @@ func _check_client_connection():
 		bytes_received += packet.size()
 		_process_received_packet(1, packet)  # Server is always ID 1
 
+func _check_client_status():
+	if not websocket_client:
+		return
+	
+	# Check if connection is still valid (Godot 4.4 approach)
+	var status = websocket_client.get_connection_status()
+	if status == MultiplayerPeer.CONNECTION_DISCONNECTED:
+		if is_client:  # Only emit if we were connected
+			GameEvents.log_error("WebSocket: Connection to server lost")
+			connection_failed.emit("Connection to server lost")
+			is_client = false
+			websocket_client = null
+			_has_logged_connection = false
+	elif status == MultiplayerPeer.CONNECTION_CONNECTED and is_client:
+		# Connection successful - only log once
+		if not _has_logged_connection:
+			GameEvents.log_info("WebSocket: Successfully connected to server")
+			_has_logged_connection = true
+
 func _process_received_packet(from_id: int, packet: PackedByteArray):
 	# Convert packet to JSON
 	var json_string = packet.get_string_from_utf8()
@@ -268,25 +289,9 @@ func _on_server_peer_disconnected(id: int):
 		GameEvents.log_info("WebSocket: Client %d disconnected" % id)
 		player_disconnected.emit(id)
 
-func _on_server_connection_failed():
-	GameEvents.log_error("WebSocket: Server connection failed")
-	connection_failed.emit("Server connection failed")
-
-func _on_client_connection_succeeded():
-	GameEvents.log_info("WebSocket: Successfully connected to server")
-	# The client doesn't emit player_connected for itself - the server handles that
-
-func _on_client_connection_failed():
-	GameEvents.log_error("WebSocket: Failed to connect to server")
-	is_client = false
-	websocket_client = null
-	connection_failed.emit("Failed to connect to server")
-
-func _on_client_server_disconnected():
-	GameEvents.log_info("WebSocket: Disconnected from server")
-	is_client = false
-	websocket_client = null
-	player_disconnected.emit(1)  # Server disconnected
+# Note: Godot 4.4 WebSocketMultiplayerPeer doesn't have connection_failed, 
+# connection_succeeded, or server_disconnected signals.
+# We monitor connection status via polling in _process instead.
 
 # ============================================================================
 # UTILITY FUNCTIONS
