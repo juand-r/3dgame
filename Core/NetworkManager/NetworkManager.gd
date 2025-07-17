@@ -81,6 +81,9 @@ func is_connected_to_server() -> bool:
 		return _implementation.is_connected_to_server()
 	return false
 
+func is_game_connected() -> bool:
+	return is_server_running() or is_connected_to_server()
+
 # ============================================================================
 # EVENT FORWARDING
 # ============================================================================

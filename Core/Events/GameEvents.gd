@@ -15,6 +15,8 @@ signal client_disconnected_from_server()
 # Player events
 signal player_joined(player_id: int, player_name: String)
 signal player_left(player_id: int, player_name: String)
+signal player_connected(player_data: Dictionary)
+signal player_disconnected(player_id: int)
 signal player_spawned(player_id: int, position: Vector3)
 
 # Data events
@@ -38,6 +40,7 @@ signal vehicle_destroyed(vehicle_id: int)
 # World events
 signal world_loaded()
 signal world_unloaded()
+signal game_state_changed(new_state: int)
 
 # Inventory events
 signal item_picked_up(player_id: int, item_id: String, item_data: Dictionary)
@@ -55,6 +58,7 @@ signal ui_hide_all()
 # Connection UI events
 signal ui_connection_status_changed(status: String, message: String)
 signal ui_player_count_changed(count: int, max_count: int)
+signal connection_status_updated(status_text: String)
 
 # ============================================================================
 # DEBUG EVENTS

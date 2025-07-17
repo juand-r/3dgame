@@ -64,6 +64,7 @@ func change_state(new_state: GameState):
 	current_state = new_state
 	
 	GameEvents.log_info("Game state changed: %s -> %s" % [GameState.keys()[old_state], GameState.keys()[new_state]])
+	GameEvents.game_state_changed.emit(new_state)
 	
 	match current_state:
 		GameState.MENU:
@@ -138,6 +139,8 @@ func connect_to_server(address: String, port: int = 8080) -> bool:
 	if success:
 		is_client = true
 		GameEvents.log_info("Connected to server successfully")
+		# Client transitions to IN_GAME after successful connection
+		change_state(GameState.IN_GAME)
 	else:
 		GameEvents.log_error("Failed to connect to server")
 		change_state(GameState.MENU)
@@ -282,12 +285,19 @@ func _on_client_disconnected_from_server():
 func _on_player_joined(player_id: int, player_name: String):
 	add_player(player_id, player_name)
 	
+	# Emit player connected signal for UI
+	var player_data = {"id": player_id, "name": player_name}
+	GameEvents.player_connected.emit(player_data)
+	
 	# Spawn player at appropriate location
 	var spawn_pos = get_next_spawn_point()
 	GameEvents.player_spawned.emit(player_id, spawn_pos)
 
 func _on_player_left(player_id: int, player_name: String):
 	remove_player(player_id)
+	
+	# Emit player disconnected signal for UI
+	GameEvents.player_disconnected.emit(player_id)
 
 func _on_network_error(error_message: String):
 	GameEvents.log_error("Network error: %s" % error_message)
@@ -298,6 +308,22 @@ func _on_world_loaded():
 
 func _on_world_unloaded():
 	GameEvents.log_info("World unloaded successfully")
+
+# ============================================================================
+# UI SUPPORT METHODS
+# ============================================================================
+
+func get_current_state() -> GameState:
+	return current_state
+
+func get_player_count() -> int:
+	return connected_players.size()
+
+func disconnect_game():
+	if is_server:
+		stop_server()
+	elif is_client:
+		disconnect_from_server()
 
 # ============================================================================
 # DEBUG & TESTING
