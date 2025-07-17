@@ -31,6 +31,7 @@ var max_connections: int = 4
 var connected_clients: Dictionary = {}  # id -> connection_info
 var next_client_id: int = 2  # Server is always ID 1
 var client_id: int = -1  # For client connections, stores our assigned ID
+var assigned_client_id: int = -1  # NEW: Stores server-assigned client ID
 var connection_timeout: float = 30.0
 
 # Statistics
@@ -53,10 +54,10 @@ func _process(_delta):
 	# Poll networking
 	if is_server and websocket_server:
 		websocket_server.poll()
-		_check_server_connections()
+		_check_multiplayer_packets()
 	elif is_client and websocket_client:
 		websocket_client.poll()
-		_check_client_connection()
+		_check_multiplayer_packets()
 		_check_client_status()
 
 # ============================================================================
@@ -193,34 +194,53 @@ func send_data(data: Dictionary, to_id: int = -1):
 	
 	elif is_client and websocket_client:
 		# Send to server
-		websocket_client.put_packet(packet)
-		bytes_sent += packet.size()
+		GameEvents.log_debug("CLIENT: Attempting to send packet to server (size: %d bytes)" % packet.size())
+		var result = websocket_client.put_packet(packet)
+		if result == OK:
+			bytes_sent += packet.size()
+			GameEvents.log_debug("CLIENT: Packet sent successfully to server")
+		else:
+			GameEvents.log_error("CLIENT: Failed to send packet to server - Error: %d" % result)
 
 # ============================================================================
-# DATA RECEPTION
+# DATA RECEPTION - NEW MULTIPLAYER APPROACH
 # ============================================================================
 
-func _check_server_connections():
-	if not websocket_server:
+func _check_multiplayer_packets():
+	"""Check for packets using Godot's multiplayer peer system"""
+	var peer = websocket_server if is_server else websocket_client
+	if not peer:
 		return
 	
-	# Check for incoming data from clients
-	for client_id in connected_clients.keys():
-		var peer = websocket_server.get_peer(client_id)
-		if peer and peer.get_available_packet_count() > 0:
+	# Use the multiplayer peer's get_packet_count() method
+	var packet_count = peer.get_available_packet_count()
+	if packet_count > 0:
+		GameEvents.log_debug("MULTIPLAYER: %d packets available" % packet_count)
+		
+		for i in range(packet_count):
 			var packet = peer.get_packet()
-			bytes_received += packet.size()
-			_process_received_packet(client_id, packet)
+			if packet.size() > 0:
+				bytes_received += packet.size()
+				GameEvents.log_debug("MULTIPLAYER: Processing packet (size: %d bytes)" % packet.size())
+				
+				# For server: packet came from a client, but we need to determine which one
+				# For client: packet came from server (ID 1)
+				var from_id = 1 if is_client else _get_sender_id_from_packet(packet)
+				_process_received_packet(from_id, packet)
 
-func _check_client_connection():
-	if not websocket_client:
-		return
+func _get_sender_id_from_packet(packet: PackedByteArray) -> int:
+	"""Extract sender ID from packet for server-side processing"""
+	# Parse the JSON to get the player_id or sender info
+	var json_string = packet.get_string_from_utf8()
+	var json = JSON.new()
+	var parse_result = json.parse(json_string)
 	
-	# Check for incoming data from server
-	if websocket_client.get_available_packet_count() > 0:
-		var packet = websocket_client.get_packet()
-		bytes_received += packet.size()
-		_process_received_packet(1, packet)  # Server is always ID 1
+	if parse_result == OK and typeof(json.data) == TYPE_DICTIONARY:
+		var data = json.data
+		# Try to get player_id from the message content
+		return data.get("player_id", -1)
+	
+	return -1  # Unknown sender
 
 func _check_client_status():
 	if not websocket_client:
@@ -244,6 +264,8 @@ func _check_client_status():
 func _process_received_packet(from_id: int, packet: PackedByteArray):
 	# Convert packet to JSON
 	var json_string = packet.get_string_from_utf8()
+	GameEvents.log_debug("SERVER: Received JSON from client %d: %s" % [from_id, json_string.substr(0, 100) + "..." if json_string.length() > 100 else json_string])
+	
 	var json = JSON.new()
 	var parse_result = json.parse(json_string)
 	
@@ -255,6 +277,9 @@ func _process_received_packet(from_id: int, packet: PackedByteArray):
 	if typeof(data) != TYPE_DICTIONARY:
 		GameEvents.log_error("WebSocket: Received invalid data type from client %d" % from_id)
 		return
+	
+	var message_type = data.get("type", "unknown")
+	GameEvents.log_debug("SERVER: Message type from client %d: %s" % [from_id, message_type])
 	
 	# Update ping time
 	var timestamp = data.get("timestamp", 0)
@@ -282,6 +307,23 @@ func _on_server_peer_connected(id: int):
 	}
 	
 	GameEvents.log_info("WebSocket: Client %d connected" % id)
+	
+	# NEW: Send client ID assignment message to the new client
+	var id_assignment_data = {
+		"type": "client_id_assignment",
+		"your_client_id": id,
+		"timestamp": Time.get_ticks_msec()
+	}
+	
+	# Send the ID assignment directly to this client
+	if websocket_server:
+		var peer = websocket_server.get_peer(id)
+		if peer:
+			var json_string = JSON.stringify(id_assignment_data)
+			var packet = json_string.to_utf8_buffer()
+			peer.put_packet(packet)
+			GameEvents.log_debug("Sent client ID assignment to client %d: %d" % [id, id])
+	
 	player_connected.emit(id)
 
 func _on_server_peer_disconnected(id: int):
@@ -313,7 +355,19 @@ func is_server_running() -> bool:
 	return is_server and websocket_server != null
 
 func is_connected_to_server() -> bool:
-	return is_client and websocket_client != null and websocket_client.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+	if not is_client:
+		return false
+	if not websocket_client:
+		return false
+	
+	var status = websocket_client.get_connection_status()
+	var is_connected = status == MultiplayerPeer.CONNECTION_CONNECTED
+	
+	# Debug: Log connection status occasionally 
+	if not is_connected:
+		GameEvents.log_debug("Client connection check - status: %d (expected: %d)" % [status, MultiplayerPeer.CONNECTION_CONNECTED])
+	
+	return is_connected
 
 func set_max_connections(count: int):
 	max_connections = count
@@ -376,10 +430,31 @@ func get_unique_id() -> int:
 	if is_server:
 		return 1  # Server is always ID 1
 	elif is_client:
-		# For client, get ID from multiplayer peer
-		if websocket_client and websocket_client.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-			return websocket_client.get_unique_id()
+		# If we have a server-assigned ID, use that
+		if assigned_client_id != -1:
+			GameEvents.log_debug("Using server-assigned client ID: %d" % assigned_client_id)
+			return assigned_client_id
+		
+		# Fallback to WebSocket method (but this usually doesn't work reliably)
+		if websocket_client:
+			var status = websocket_client.get_connection_status()
+			var unique_id = websocket_client.get_unique_id()
+			
+			if status == MultiplayerPeer.CONNECTION_CONNECTED and unique_id > 0:
+				GameEvents.log_debug("Using WebSocket assigned ID: %d" % unique_id)
+				return unique_id
+		
+		# If we get here, we haven't received our ID assignment yet
+		GameEvents.log_debug("Client ID not yet assigned by server")
+		return -1
+	
+	GameEvents.log_warning("get_unique_id() returning -1 - no valid client state")
 	return -1
+
+func set_assigned_client_id(id: int):
+	"""Store the server-assigned client ID"""
+	assigned_client_id = id
+	GameEvents.log_info("Client ID assigned by server: %d" % id)
 
 func send_test_message():
 	var test_data = {

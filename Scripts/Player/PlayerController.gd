@@ -20,7 +20,14 @@ var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 # Networking state
 var last_sent_position: Vector3 = Vector3.ZERO
 var last_sent_rotation: Vector3 = Vector3.ZERO
-var position_send_threshold: float = 0.1  # Only send if moved this much
+var position_send_threshold: float = 0.05  # Send more frequently for better sync
+var last_send_time: int = 0
+var send_interval_ms: int = 50  # Send at most every 50ms (20 fps)
+
+# Remote player interpolation targets
+var target_position: Vector3 = Vector3.ZERO
+var target_rotation: Vector3 = Vector3.ZERO
+var target_velocity: Vector3 = Vector3.ZERO
 
 func _ready():
     print("[DEBUG] Player ready - ID: ", player_id, " Local: ", is_local_player)
@@ -61,6 +68,12 @@ func _physics_process(delta):
         handle_movement_input(delta)
         # Sync position to network after movement
         sync_position_to_network()
+    else:
+        # For remote players, interpolate to target position
+        if target_position != Vector3.ZERO:
+            var interpolation_speed = 15.0  # How fast to interpolate
+            global_position = global_position.lerp(target_position, interpolation_speed * delta)
+            rotation = rotation.lerp(target_rotation, interpolation_speed * delta)
     
     # Move the character
     move_and_slide()
@@ -140,9 +153,21 @@ func sync_position_to_network():
     if not is_local_player:
         return
     
-    # Only send if position changed significantly (optimization)
-    if global_position.distance_to(last_sent_position) < position_send_threshold:
+    var current_time = Time.get_ticks_msec()
+    
+    # Rate limiting: don't send more than every 50ms
+    if current_time - last_send_time < send_interval_ms:
         return
+    
+    # Only send if position changed significantly OR enough time has passed
+    var position_changed = global_position.distance_to(last_sent_position) >= position_send_threshold
+    var rotation_changed = abs(rotation.y - last_sent_rotation.y) >= 0.1  # 0.1 radian threshold
+    
+    if not (position_changed or rotation_changed):
+        return
+    
+    # Debug: Log local player position with context
+    GameEvents.log_debug("LOCAL Player %d at position %s (camera looking from here)" % [player_id, global_position])
     
     # Create position update message (matching NetworkManager expected format)
     var position_data = {
@@ -161,26 +186,32 @@ func sync_position_to_network():
         "is_grounded": is_on_floor()
     }
     
-    # Send via NetworkManager
-    if NetworkManager:
+    # Send via NetworkManager (only if properly connected)
+    if NetworkManager and NetworkManager.is_game_connected():
         NetworkManager.send_data(position_data)
         GameEvents.log_debug("Position sent: %s" % [global_position])
+    else:
+        # Debug: Log why we can't send
+        var nm_exists = NetworkManager != null
+        var connected = NetworkManager.is_game_connected() if NetworkManager else false
+        GameEvents.log_debug("Skipping position send - NetworkManager: %s, Connected: %s" % [nm_exists, connected])
     
-    # Update last sent position
+    # Update last sent data
     last_sent_position = global_position
     last_sent_rotation = rotation
+    last_send_time = current_time
 
-func apply_remote_position_update(position: Vector3, rotation: Vector3, velocity: Vector3):
+func apply_remote_position_update(new_position: Vector3, new_rotation: Vector3, new_velocity: Vector3):
     """Apply position update from network for remote players"""
     if is_local_player:
-        return  # Don't apply network updates to local player
+        return  # Don't apply updates to local player
     
-    # For now, apply position directly (we'll add interpolation later)
-    global_position = position
-    self.rotation = rotation
-    self.velocity = velocity
+    # Set targets for smooth interpolation (actual interpolation happens in _physics_process)
+    target_position = new_position
+    target_rotation = new_rotation
+    target_velocity = new_velocity
     
-    GameEvents.log_debug("Remote player %d updated position: %s" % [player_id, position])
+    GameEvents.log_debug("REMOTE Player %d target updated to: %s (distance from my camera: %.2f)" % [player_id, new_position, global_position.distance_to(new_position)])
 
 func set_player_data(id: int, local: bool):
     """Initialize player with ID and local status"""

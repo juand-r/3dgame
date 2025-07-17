@@ -90,6 +90,9 @@ func _on_connection_status_updated(status_text):
 # ============================================================================
 
 func _update_ui_state():
+    if not GameManager:
+        return  # GameManager not ready yet
+        
     var current_state = GameManager.get_current_state()
     
     # Update status text
@@ -120,6 +123,9 @@ func _update_ui_state():
         _update_network_stats()
 
 func _update_player_count():
+    if not GameManager:
+        return  # GameManager not ready yet
+        
     var count = GameManager.get_player_count()
     var max_players = 4
     var count_text = "Players: %d/%d" % [count, max_players]
@@ -129,6 +135,9 @@ func _update_player_count():
         hud_player_count.text = count_text
 
 func _update_network_stats():
+    if not NetworkManager:
+        return  # NetworkManager not ready yet
+        
     if not NetworkManager.is_game_connected():
         return
     
@@ -157,5 +166,5 @@ func _toggle_debug_info():
 
 func _process(_delta):
     # Update network stats periodically when in game
-    if GameManager.get_current_state() == GameManager.GameState.IN_GAME:
+    if GameManager and GameManager.get_current_state() == GameManager.GameState.IN_GAME:
         _update_network_stats()

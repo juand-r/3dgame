@@ -132,6 +132,8 @@ func process_received_data(from_id: int, data: Dictionary):
 	var message_type = data.get("type", "unknown")
 	
 	match message_type:
+		"client_id_assignment":
+			_handle_client_id_assignment(from_id, data)
 		"player_position":
 			_handle_player_position(from_id, data)
 		"vehicle_position":
@@ -145,12 +147,36 @@ func process_received_data(from_id: int, data: Dictionary):
 		_:
 			GameEvents.log_warning("Unknown message type: %s" % message_type)
 
+func _handle_client_id_assignment(from_id: int, data: Dictionary):
+	"""Handle client ID assignment from server"""
+	var assigned_id = data.get("your_client_id", -1)
+	
+	if assigned_id != -1:
+		GameEvents.log_info("Received client ID assignment: %d" % assigned_id)
+		
+		# Store the assigned ID in the WebSocket implementation
+		if _implementation and _implementation.has_method("set_assigned_client_id"):
+			_implementation.set_assigned_client_id(assigned_id)
+		
+		# Notify GameManager about the ID assignment
+		if GameManager:
+			GameManager.on_client_id_assigned(assigned_id)
+	else:
+		GameEvents.log_error("Invalid client ID assignment received")
+
 func _handle_player_position(from_id: int, data: Dictionary):
 	var position = Vector3(data.get("pos_x", 0), data.get("pos_y", 0), data.get("pos_z", 0))
 	var rotation = Vector3(data.get("rot_x", 0), data.get("rot_y", 0), data.get("rot_z", 0))
 	var velocity = Vector3(data.get("vel_x", 0), data.get("vel_y", 0), data.get("vel_z", 0))
+	var player_id = data.get("player_id", from_id)  # Use player_id from message if available
 	
-	GameEvents.emit_player_update(from_id, position, rotation, velocity)
+	GameEvents.log_debug("Received position update - from_id: %d, player_id: %d, pos: %s" % [from_id, player_id, position])
+	
+	# SERVER DEBUG: Log when server receives client position updates
+	if GameManager and GameManager.is_server:
+		GameEvents.log_debug("SERVER: Received client position update - player_id: %d, pos: %s" % [player_id, position])
+	
+	GameEvents.emit_player_update(player_id, position, rotation, velocity)
 
 func _handle_vehicle_position(from_id: int, data: Dictionary):
 	var vehicle_id = data.get("vehicle_id", -1)
