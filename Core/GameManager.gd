@@ -22,12 +22,16 @@ var server_port: int = 8080
 
 # Player management
 var connected_players: Dictionary = {}  # player_id -> player_data
+var spawned_players: Dictionary = {}  # player_id -> PlayerController instance
 var local_player_id: int = -1
 var local_player_name: String = "Player"
 
 # World management
 var current_world_scene: Node = null
 var spawn_points: Array[Vector3] = []
+
+# Player scene reference
+const PlayerScene = preload("res://Scenes/Player/Player.tscn")
 
 # ============================================================================
 # INITIALIZATION
@@ -43,6 +47,7 @@ func _ready():
 	GameEvents.client_disconnected_from_server.connect(_on_client_disconnected_from_server)
 	GameEvents.player_joined.connect(_on_player_joined)
 	GameEvents.player_left.connect(_on_player_left)
+	GameEvents.player_spawned.connect(_on_player_spawned)
 	GameEvents.network_error.connect(_on_network_error)
 	
 	# Connect to world events
@@ -194,6 +199,50 @@ func get_next_spawn_point() -> Vector3:
 	var index = connected_players.size() % spawn_points.size()
 	return spawn_points[index]
 
+func spawn_player(player_id: int, position: Vector3):
+	if player_id in spawned_players:
+		GameEvents.log_warning("Player %d already spawned" % player_id)
+		return
+	
+	if not current_world_scene:
+		GameEvents.log_error("Cannot spawn player: no world loaded")
+		return
+	
+	# Create player instance
+	var player_instance = PlayerScene.instantiate()
+	
+	# Determine if this is the local player
+	var is_local = (is_server and player_id == 1) or (is_client and player_id == NetworkManager.get_unique_id())
+	
+	# Set player data
+	player_instance.set_player_data(player_id, is_local)
+	
+	# Add to world first
+	current_world_scene.add_child(player_instance)
+	
+	# Then set position (after it's in the tree)
+	player_instance.global_position = position
+	
+	# Track spawned player
+	spawned_players[player_id] = player_instance
+	
+	GameEvents.log_info("Player %d spawned at %s (local: %s)" % [player_id, position, is_local])
+	
+	# If this is the local player, store the reference
+	if is_local:
+		local_player_id = player_id
+
+func despawn_player(player_id: int):
+	if player_id in spawned_players:
+		var player_instance = spawned_players[player_id]
+		player_instance.queue_free()
+		spawned_players.erase(player_id)
+		GameEvents.log_info("Player %d despawned" % player_id)
+		
+		# Clear local player reference if needed
+		if player_id == local_player_id:
+			local_player_id = -1
+
 # ============================================================================
 # WORLD MANAGEMENT
 # ============================================================================
@@ -253,6 +302,11 @@ func cleanup_connections():
 	is_server = false
 	is_client = false
 	connected_players.clear()
+	
+	# Despawn all players
+	for player_id in spawned_players.keys():
+		despawn_player(player_id)
+	
 	local_player_id = -1
 	unload_game_world()
 	
@@ -296,8 +350,14 @@ func _on_player_joined(player_id: int, player_name: String):
 func _on_player_left(player_id: int, player_name: String):
 	remove_player(player_id)
 	
+	# Despawn player
+	despawn_player(player_id)
+	
 	# Emit player disconnected signal for UI
 	GameEvents.player_disconnected.emit(player_id)
+
+func _on_player_spawned(player_id: int, position: Vector3):
+	spawn_player(player_id, position)
 
 func _on_network_error(error_message: String):
 	GameEvents.log_error("Network error: %s" % error_message)
@@ -305,6 +365,14 @@ func _on_network_error(error_message: String):
 
 func _on_world_loaded():
 	GameEvents.log_info("World loaded successfully")
+	
+	# If we're the server, spawn our own player
+	if is_server:
+		# Add server as player 1
+		add_player(1, "Server Player")
+		# Spawn the server player
+		var spawn_pos = get_next_spawn_point()
+		GameEvents.player_spawned.emit(1, spawn_pos)
 
 func _on_world_unloaded():
 	GameEvents.log_info("World unloaded successfully")
