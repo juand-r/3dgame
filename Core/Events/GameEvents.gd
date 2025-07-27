@@ -88,6 +88,9 @@ func log_error(message: String):
 func emit_player_update(player_id: int, pos: Vector3, rot: Vector3, vel: Vector3):
     player_position_updated.emit(player_id, pos, rot, vel)
 
+func emit_player_spawn(player_id: int, pos: Vector3, rot: Vector3):
+    player_spawned.emit(player_id, pos)
+
 func emit_vehicle_update(vehicle_id: int, pos: Vector3, rot: Vector3, vel: Vector3):
     vehicle_position_updated.emit(vehicle_id, pos, rot, vel)
 

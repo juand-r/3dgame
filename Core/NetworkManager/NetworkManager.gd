@@ -94,8 +94,14 @@ func get_unique_id() -> int:
 # ============================================================================
 
 func _on_player_connected(id: int):
+	print("PRINT DEBUG: NetworkManager._on_player_connected called with id: ", id)
+	GameEvents.log_debug("DEBUG: NetworkManager._on_player_connected called with id: %d" % id)
 	GameEvents.log_info("Player connected: %d" % id)
+	print("PRINT DEBUG: About to emit GameEvents.player_joined(", id, ", \"Player", id, "\")")
+	GameEvents.log_debug("DEBUG: About to emit GameEvents.player_joined(%d, \"Player%d\")" % [id, id])
 	GameEvents.player_joined.emit(id, "Player%d" % id)
+	print("PRINT DEBUG: GameEvents.player_joined.emit completed for id: ", id)
+	GameEvents.log_debug("DEBUG: GameEvents.player_joined.emit completed for id: %d" % id)
 	player_connected.emit(id)
 
 func _on_player_disconnected(id: int):
@@ -136,6 +142,8 @@ func process_received_data(from_id: int, data: Dictionary):
 			_handle_client_id_assignment(from_id, data)
 		"player_position":
 			_handle_player_position(from_id, data)
+		"player_spawn":
+			_handle_player_spawn(from_id, data)
 		"vehicle_position":
 			_handle_vehicle_position(from_id, data)
 		"player_enter_vehicle":
@@ -172,11 +180,33 @@ func _handle_player_position(from_id: int, data: Dictionary):
 	
 	GameEvents.log_debug("Received position update - from_id: %d, player_id: %d, pos: %s" % [from_id, player_id, position])
 	
-	# SERVER DEBUG: Log when server receives client position updates
+	# SERVER LOGIC: Broadcast position updates to other clients  
 	if GameManager and GameManager.is_server:
 		GameEvents.log_debug("SERVER: Received client position update - player_id: %d, pos: %s" % [player_id, position])
+		# Broadcast to all other connected clients
+		for client_id in _implementation.connected_clients.keys():
+			if client_id != from_id:  # Don't send back to sender
+				GameEvents.log_debug("SERVER: Sending position update to client %d" % client_id)
+				_implementation.send_data(data, client_id)  # Relay the original data
 	
+	# CLIENT LOGIC: Apply position update to local game state
 	GameEvents.emit_player_update(player_id, position, rotation, velocity)
+
+
+
+func _handle_player_spawn(from_id: int, data: Dictionary):
+	var player_id = data.get("player_id", from_id)
+	var position = Vector3(data.get("pos_x", 0), data.get("pos_y", 0), data.get("pos_z", 0))
+	var rotation = Vector3(data.get("rot_x", 0), data.get("rot_y", 0), data.get("rot_z", 0))
+	
+	print("DEBUG CLIENT: _handle_player_spawn received - from_id: %d, player_id: %d, pos: %s" % [from_id, player_id, position])
+	GameEvents.log_debug("DEBUG: _handle_player_spawn received - from_id: %d, player_id: %d, pos: %s" % [from_id, player_id, position])
+	
+	print("DEBUG CLIENT: About to call GameEvents.emit_player_spawn(%d, %s, %s)" % [player_id, position, rotation])
+	GameEvents.log_debug("DEBUG: About to call GameEvents.emit_player_spawn(%d, %s, %s)" % [player_id, position, rotation])
+	GameEvents.emit_player_spawn(player_id, position, rotation)
+	print("DEBUG CLIENT: GameEvents.emit_player_spawn completed")
+	GameEvents.log_debug("DEBUG: GameEvents.emit_player_spawn completed")
 
 func _handle_vehicle_position(from_id: int, data: Dictionary):
 	var vehicle_id = data.get("vehicle_id", -1)

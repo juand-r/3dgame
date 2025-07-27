@@ -269,32 +269,12 @@ func remove_player(player_id: int):
 func get_player_data(player_id: int) -> Dictionary:
 	return connected_players.get(player_id, {})
 
-func get_next_spawn_point() -> Vector3:
-	if spawn_points.is_empty():
-		GameEvents.log_warning("No spawn points available, using origin")
-		return Vector3.ZERO
-	
-	# Use connected_players.size() to get next available spawn point
-	var index = connected_players.size() % spawn_points.size()
-	return spawn_points[index]
-
 func get_spawn_point_for_player(player_id: int) -> Vector3:
-	"""Get deterministic spawn point based on player ID"""
-	if spawn_points.is_empty():
-		GameEvents.log_warning("No spawn points available, using origin")
-		return Vector3.ZERO
-	
-	# Use deterministic mapping based on player ID
-	if player_id == 1:
-		# Server is always at spawn point 1
-		return spawn_points[1]  # (2, 1, 0)
-	else:
-		# Client gets spawn point 2  
-		return spawn_points[2]  # (-2, 1, 0)
-	
-	# Future: For more players, use modulo with offset
-	# var index = (player_id - 1) % spawn_points.size()
-	# return spawn_points[index]
+	# Use deterministic player ID-based assignment to ensure different spawn points
+	var spawn_index = abs(player_id) % spawn_points.size()
+	var spawn_pos = spawn_points[spawn_index]
+	GameEvents.log_debug("DEBUG: Player %d assigned to spawn_points[%d] = %s (based on player_id %% %d)" % [player_id, spawn_index, spawn_pos, spawn_points.size()])
+	return spawn_pos
 
 func spawn_player(player_id: int, position: Vector3):
 	if player_id in spawned_players:
@@ -392,6 +372,55 @@ func broadcast_existing_players_to_new_client(new_client_id: int):
 			NetworkManager.send_data(position_data, new_client_id)
 			GameEvents.log_debug("Sent existing player %d position to new client %d: %s" % [existing_player_id, new_client_id, existing_player.global_position])
 
+func broadcast_new_player_to_existing_clients(new_player_id: int, spawn_position: Vector3):
+	"""Send new player's spawn data to all existing clients"""
+	print("DEBUG SERVER: Broadcasting new player %d to existing clients" % new_player_id)
+	GameEvents.log_info("Broadcasting new player %d to existing clients" % new_player_id)
+	
+	# DEBUG: Show what clients we're iterating over
+	print("DEBUG SERVER: connected_players.keys() = %s" % connected_players.keys())
+	GameEvents.log_debug("DEBUG: connected_players.keys() = %s" % connected_players.keys())
+	
+	for existing_client_id in connected_players.keys():
+		# Don't send to the new player themselves
+		if existing_client_id == new_player_id:
+			print("DEBUG SERVER: Skipping new player %d (don't send to self)" % existing_client_id)
+			GameEvents.log_debug("DEBUG: Skipping new player %d (don't send to self)" % existing_client_id)
+			continue
+		
+		print("DEBUG SERVER: About to send player_spawn message to existing client %d" % existing_client_id)
+		GameEvents.log_debug("DEBUG: About to send player_spawn message to existing client %d" % existing_client_id)
+		
+		# Create spawn notification for this new player
+		var spawn_data = {
+			"type": "player_spawn",
+			"player_id": new_player_id,
+			"pos_x": spawn_position.x,
+			"pos_y": spawn_position.y,
+			"pos_z": spawn_position.z,
+			"timestamp": Time.get_ticks_msec()
+		}
+		
+		NetworkManager.send_message_to_client(existing_client_id, spawn_data)
+		print("DEBUG SERVER: player_spawn message sent to existing client %d" % existing_client_id)
+		GameEvents.log_debug("DEBUG: player_spawn message sent to existing client %d" % existing_client_id)
+
+func _broadcast_new_player_after_spawn(player_id: int):
+	"""Broadcast new player position after physics adjustment (deferred call)"""
+	GameEvents.log_debug("DEBUG: _broadcast_new_player_after_spawn called for player %d" % player_id)
+	
+	# Get the actual spawned player's current position (after physics adjustment)
+	if player_id in spawned_players:
+		var player_instance = spawned_players[player_id]
+		var actual_position = player_instance.global_position
+		
+		GameEvents.log_debug("DEBUG: Broadcasting actual position %s for player %d (after physics)" % [actual_position, player_id])
+		broadcast_new_player_to_existing_clients(player_id, actual_position)
+		print("PRINT DEBUG: broadcast_new_player_to_existing_clients completed with actual position")
+		GameEvents.log_debug("DEBUG: broadcast_new_player_to_existing_clients completed with actual position")
+	else:
+		GameEvents.log_warning("WARNING: Player %d not found in spawned_players during deferred broadcast" % player_id)
+
 # ============================================================================
 # WORLD MANAGEMENT
 # ============================================================================
@@ -472,32 +501,30 @@ func get_local_player_data() -> Dictionary:
 
 func on_client_id_assigned(assigned_id: int):
 	"""Handle client ID assignment from server"""
+	print("DEBUG: GameManager: Client ID assigned by server: %d" % assigned_id)
 	GameEvents.log_info("GameManager: Client ID assigned by server: %d" % assigned_id)
 	
 	# Update our local player ID to match server assignment
 	if is_client and local_player_id == -1:
 		local_player_id = assigned_id
+		print("DEBUG: Updated local player ID to server-assigned ID: %d" % assigned_id)
 		GameEvents.log_info("Updated local player ID to server-assigned ID: %d" % assigned_id)
 		
-		# If we already have a player with ID -1, update it to the correct ID
-		if -1 in spawned_players:
-			var player_instance = spawned_players[-1]
-			if player_instance and player_instance.is_local_player:
-				# Update the player's ID
-				player_instance.player_id = assigned_id
-				GameEvents.log_info("Updated spawned player ID from -1 to %d" % assigned_id)
-				
-				# Move the player reference to the correct key
-				spawned_players[assigned_id] = player_instance
-				spawned_players.erase(-1)
-				
-				# Update connected players data
-				if -1 in connected_players:
-					var player_data = connected_players[-1]
-					player_data.id = assigned_id
-					connected_players[assigned_id] = player_data
-					connected_players.erase(-1)
-					GameEvents.log_info("Updated connected player data from -1 to %d" % assigned_id)
+		# Update connected players data from -1 to real ID
+		if -1 in connected_players:
+			var player_data = connected_players[-1]
+			player_data.id = assigned_id
+			connected_players[assigned_id] = player_data
+			connected_players.erase(-1)
+			print("DEBUG: Updated connected player data from -1 to %d" % assigned_id)
+			GameEvents.log_info("Updated connected player data from -1 to %d" % assigned_id)
+		
+		# NOW spawn the local player with the correct server-assigned ID
+		print("DEBUG: About to spawn local player with correct ID %d" % assigned_id)
+		var spawn_pos = get_spawn_point_for_player(assigned_id)
+		print("DEBUG: Spawn position for player %d: %s" % [assigned_id, spawn_pos])
+		spawn_player(assigned_id, spawn_pos)
+		print("DEBUG: Local player spawned with correct ID %d at %s" % [assigned_id, spawn_pos])
 
 # ============================================================================
 # EVENT HANDLERS
@@ -517,6 +544,8 @@ func _on_client_disconnected_from_server():
 	change_state(GameState.DISCONNECTED)
 
 func _on_player_joined(player_id: int, player_name: String):
+	print("PRINT DEBUG: GameManager._on_player_joined called with player_id: ", player_id, ", player_name: ", player_name)
+	GameEvents.log_debug("DEBUG: GameManager._on_player_joined called with player_id: %d, player_name: %s" % [player_id, player_name])
 	add_player(player_id, player_name)
 	
 	# Emit player connected signal for UI
@@ -529,6 +558,11 @@ func _on_player_joined(player_id: int, player_name: String):
 	
 	# NEW: Broadcast existing player positions to the new client
 	broadcast_existing_players_to_new_client(player_id)
+	
+	# FIXED: Wait for player to be spawned and physics-adjusted, then broadcast actual position
+	print("PRINT DEBUG: About to call call_deferred for broadcast after spawn")
+	GameEvents.log_debug("DEBUG: Deferring broadcast until after player spawn and physics adjustment")
+	call_deferred("_broadcast_new_player_after_spawn", player_id)
 
 func _on_player_left(player_id: int, player_name: String):
 	remove_player(player_id)
@@ -540,14 +574,23 @@ func _on_player_left(player_id: int, player_name: String):
 	GameEvents.player_disconnected.emit(player_id)
 
 func _on_player_spawned(player_id: int, position: Vector3):
-	# For clients: Don't spawn our own player from server signals
-	# We handle our own spawning in setup_client_world()
-	if is_client:
-		var client_id = NetworkManager.get_unique_id()
-		if player_id == client_id:
-			GameEvents.log_debug("Client ignoring own player spawn signal - will handle in setup_client_world()")
-			return
+	# DEBUG: Add logging to trace spawn signal processing
+	print("DEBUG: _on_player_spawned called - player_id: %d, position: %s" % [player_id, position])
+	GameEvents.log_debug("DEBUG: _on_player_spawned called - player_id: %d, position: %s" % [player_id, position])
 	
+	# For clients: Don't spawn our own player from server signals
+	# We handle our own spawning in on_client_id_assigned() now
+	if is_client:
+		print("DEBUG: Client mode - checking if this is our own player (local_player_id: %d)" % local_player_id)
+		if player_id == local_player_id:
+			print("DEBUG: Client ignoring own player spawn signal - already handled in on_client_id_assigned()")
+			GameEvents.log_debug("Client ignoring own player spawn signal - already handled in on_client_id_assigned()")
+			return
+		else:
+			print("DEBUG: This is a REMOTE player spawn - proceeding with spawn_player()")
+	
+	print("DEBUG: About to call spawn_player(%d, %s)" % [player_id, position])
+	GameEvents.log_debug("DEBUG: About to call spawn_player(%d, %s)" % [player_id, position])
 	spawn_player(player_id, position)
 
 func _on_player_position_updated(player_id: int, position: Vector3, rotation: Vector3, velocity: Vector3):
@@ -613,9 +656,10 @@ func setup_client_world():
 	# Add client as player
 	add_player(client_id, "Client Player")
 	
-	# Spawn the client's local player at deterministic position
-	var spawn_pos = get_spawn_point_for_player(client_id) 
-	spawn_player(client_id, spawn_pos)
+	# NOTE: Do NOT spawn the local player here - wait for server-assigned ID
+	# The local player will be spawned in on_client_id_assigned() with the correct ID
+	print("DEBUG: Client world setup complete, waiting for server-assigned ID before spawning local player")
+	GameEvents.log_info("Client world setup complete, waiting for server-assigned ID before spawning local player")
 
 func _on_world_loaded():
 	GameEvents.log_info("World loaded successfully")

@@ -210,6 +210,8 @@ func send_data(data: Dictionary, to_id: int = -1):
 		else:
 			GameEvents.log_error("CLIENT: Failed to send packet to server - Error: %d" % result)
 
+
+
 # ============================================================================
 # DATA RECEPTION - NEW MULTIPLAYER APPROACH
 # ============================================================================
@@ -302,6 +304,9 @@ func _process_received_packet(from_id: int, packet: PackedByteArray):
 # ============================================================================
 
 func _on_server_peer_connected(id: int):
+	print("PRINT DEBUG: _on_server_peer_connected called with id: ", id)
+	GameEvents.log_debug("DEBUG: _on_server_peer_connected called with id: %d" % id)
+	
 	if connected_clients.size() >= max_connections:
 		GameEvents.log_warning("WebSocket: Max connections reached, rejecting client %d" % id)
 		websocket_server.disconnect_peer(id)
@@ -332,7 +337,11 @@ func _on_server_peer_connected(id: int):
 			peer.put_packet(packet)
 			GameEvents.log_debug("Sent client ID assignment to client %d: %d" % [id, id])
 	
+	print("PRINT DEBUG: About to emit player_connected signal for id: ", id)
+	GameEvents.log_debug("DEBUG: About to emit player_connected signal for id: %d" % id)
 	player_connected.emit(id)
+	print("PRINT DEBUG: player_connected.emit(", id, ") completed")
+	GameEvents.log_debug("DEBUG: player_connected.emit(%d) completed" % id)
 
 func _on_server_peer_disconnected(id: int):
 	if id in connected_clients:

@@ -29,6 +29,9 @@ func _ready():
     GameEvents.player_disconnected.connect(_on_player_disconnected)
     GameEvents.connection_status_updated.connect(_on_connection_status_updated)
     
+    # Set default values for input fields
+    address_input.text = "3d-game-production.up.railway.app"
+    
     # Initialize UI state
     _update_ui_state()
 
