@@ -20,6 +20,11 @@ var is_client: bool = false
 var max_players: int = 4
 var server_port: int = 8080
 
+# Headless server configuration (easily toggleable for testing)
+@export var headless_server_mode: bool = false  # Can be toggled in editor for testing
+@export var dedicated_server: bool = false      # Command line will set this
+@export var allow_server_player: bool = true    # Easy toggle for server player spawning
+
 # Player management
 var connected_players: Dictionary = {}  # player_id -> player_data
 var spawned_players: Dictionary = {}  # player_id -> PlayerController instance
@@ -40,6 +45,8 @@ const PlayerScene = preload("res://Scenes/Player/Player.tscn")
 func _ready():
     GameEvents.log_info("GameManager initialized")
     
+    # Parse command line arguments for headless server mode
+    _parse_command_line_arguments()
     # Connect to network events
     GameEvents.server_started.connect(_on_server_started)
     GameEvents.server_stopped.connect(_on_server_stopped)
@@ -58,8 +65,77 @@ func _ready():
     # Set up basic spawn points (will be replaced when world loads)
     setup_default_spawn_points()
     
-    # Show main menu
-    change_state(GameState.MENU)
+    # Show main menu (unless we're a dedicated server)
+    if dedicated_server:
+        setup_dedicated_server()
+    else:
+        change_state(GameState.MENU)
+
+# ============================================================================
+# COMMAND LINE ARGUMENT PARSING
+# ============================================================================
+
+func _parse_command_line_arguments():
+    """Parse command line arguments for server deployment modes"""
+    var args = OS.get_cmdline_args()
+    
+    GameEvents.log_info("Command line args: %s" % str(args))
+    
+    for arg in args:
+        match arg:
+            "--server":
+                dedicated_server = true
+                headless_server_mode = true
+                allow_server_player = false  # Dedicated servers don't spawn local players
+                GameEvents.log_info("Command line: Dedicated server mode enabled")
+            "--headless":
+                headless_server_mode = true
+                GameEvents.log_info("Command line: Headless mode enabled")
+            "--with-server-player":
+                allow_server_player = true  # Override for testing dedicated server with player
+                GameEvents.log_info("Command line: Server player enabled (testing mode)")
+            "--port":
+                # Next argument should be port number
+                var port_index = args.find("--port") + 1
+                if port_index < args.size():
+                    server_port = int(args[port_index])
+                    GameEvents.log_info("Command line: Port set to %d" % server_port)
+    
+    # Log final configuration
+    GameEvents.log_info("=== SERVER CONFIGURATION ===")
+    GameEvents.log_info("Dedicated Server: %s" % dedicated_server)
+    GameEvents.log_info("Headless Mode: %s" % headless_server_mode) 
+    GameEvents.log_info("Allow Server Player: %s" % allow_server_player)
+    GameEvents.log_info("Server Port: %d" % server_port)
+
+func setup_dedicated_server():
+    """Initialize dedicated server mode (no GUI, no local player)"""
+    GameEvents.log_info("Setting up dedicated server mode")
+    
+    is_server = true
+    is_client = false
+    local_player_id = -1  # Dedicated server has no local player
+    
+    # Defer server startup to next frame to ensure NetworkManager is fully ready
+    call_deferred("_start_dedicated_server_deferred")
+
+func _start_dedicated_server_deferred():
+    """Start the dedicated server after NetworkManager is fully initialized"""
+    # Double-check that NetworkManager is ready
+    if not NetworkManager:
+        GameEvents.log_error("NetworkManager still not available")
+        get_tree().quit(1)
+        return
+    
+    GameEvents.log_info("Starting dedicated server on port %d" % server_port)
+    var success = NetworkManager.start_server(server_port)
+    
+    if success:
+        GameEvents.log_info("Dedicated server started successfully - waiting for clients")
+        load_game_world()  # Load world for coordinating players
+    else:
+        GameEvents.log_error("Failed to start dedicated server")
+        get_tree().quit(1)  # Exit with error code
 
 # ============================================================================
 # GAME STATE MANAGEMENT
@@ -544,13 +620,18 @@ func setup_client_world():
 func _on_world_loaded():
     GameEvents.log_info("World loaded successfully")
     
-    # If we're the server, spawn our own player
-    if is_server:
+    # If we're the server, optionally spawn our own player (toggleable for dedicated servers)
+    if is_server and allow_server_player:
+        GameEvents.log_info("Spawning server player (allow_server_player=true)")
         # Add server as player 1
         add_player(1, "Server Player")
         # Spawn the server player at deterministic position
         var spawn_pos = get_spawn_point_for_player(1)
         GameEvents.player_spawned.emit(1, spawn_pos)
+    elif is_server and not allow_server_player:
+        GameEvents.log_info("Dedicated server mode: No server player spawned (allow_server_player=false)")
+    elif is_server:
+        GameEvents.log_info("Server ready - no local player spawned")
 
 func _on_world_unloaded():
     GameEvents.log_info("World unloaded successfully")

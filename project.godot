@@ -12,7 +12,7 @@ config_version=5
 
 config/name="GTA-Style Multiplayer Game"
 config/description="3D open-world multiplayer game with vehicles, NPCs, and inventory system"
-run/main_scene="uid://dg4x16dfegj33"
+run/main_scene="uid://cb8muxjrnqghi"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 

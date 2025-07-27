@@ -1,0 +1,18 @@
+# Railway configuration for GTA-Style Multiplayer Game
+[build]
+builder = "dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "always"
+
+# Environment variables
+[env]
+PORT = "8080"
+NODE_ENV = "production"
+GODOT_HEADLESS = "true"
+
+# Networking configuration  
+[networking]
+allowedHosts = ["*"] 

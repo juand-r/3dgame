@@ -25,6 +25,7 @@ Thumbs.db
 
 # Build artifacts
 builds/
+Builds/
 dist/
 
 # Railway deployment
