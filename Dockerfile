@@ -1,36 +1,26 @@
-# Dockerfile for GTA-Style Multiplayer Game Server
+# Simple Dockerfile for Railway deployment
 FROM ubuntu:22.04
 
-# Install dependencies
+# Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y \
-    wget \
-    unzip \
-    curl \
+    libc6 \
     && rm -rf /var/lib/apt/lists/*
 
-# Download Godot headless (4.4.1 stable)
-RUN wget https://downloads.tuxfamily.org/godotengine/4.4.1/Godot_v4.4.1-stable_linux.x86_64.zip \
-    && unzip Godot_v4.4.1-stable_linux.x86_64.zip \
-    && mv Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot \
-    && chmod +x /usr/local/bin/godot \
-    && rm Godot_v4.4.1-stable_linux.x86_64.zip
-
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# Copy game files (will be populated by build export)
-COPY Builds/server/ /app/
+# Copy our game server executable
+COPY game-server /app/3d-game-server
 
-# Create non-root user for security
-RUN useradd -m -u 1000 gameserver && chown -R gameserver:gameserver /app
-USER gameserver
+# Make sure it's executable
+RUN chmod +x /app/3d-game-server
 
-# Expose port (Railway sets $PORT environment variable)
-EXPOSE $PORT
+# Railway handles port routing automatically
 
-# Health check - simple process check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD pgrep godot || exit 1
-
-# Run the headless server
-CMD godot --headless --server --port ${PORT:-8080} 
+# Debug: Add startup logging
+CMD echo "Container starting..." && \
+    echo "PORT environment variable: $PORT" && \
+    echo "Executable permissions:" && \
+    ls -la /app/3d-game-server && \
+    echo "Starting server on port ${PORT:-8080}..." && \
+    /app/3d-game-server --headless --server --port ${PORT:-8080} 

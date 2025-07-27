@@ -130,8 +130,16 @@ func connect_to_server(address: String, port: int) -> bool:
 	# Create WebSocket client
 	websocket_client = WebSocketMultiplayerPeer.new()
 	
-	# Construct WebSocket URL
-	var url = "ws://%s:%d" % [address, port]
+	# Construct WebSocket URL - use wss:// for secure connections (Railway, etc.)
+	var url: String
+	if address.contains("railway.app") or address.contains("herokuapp.com") or port == 443:
+		# Use secure WebSocket for cloud platforms (no port needed)
+		url = "wss://%s" % address
+		GameEvents.log_info("Using secure WebSocket: %s" % url)
+	else:
+		# Use regular WebSocket for local development
+		url = "ws://%s:%d" % [address, port]
+		GameEvents.log_info("Using WebSocket: %s" % url)
 	
 	# Connect to server
 	var error = websocket_client.create_client(url)

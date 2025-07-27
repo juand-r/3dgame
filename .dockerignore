@@ -1,0 +1,23 @@
+# .dockerignore - Control what Docker can access
+# We want to include Builds/ even though it's in .gitignore
+
+# Ignore most development files
+.git
+.gitignore
+.godot
+*.md
+.vscode
+.idea
+
+# Ignore source files (we only need the built executable)
+Scripts/
+Scenes/
+Core/
+project.godot
+icon.svg*
+export_presets.cfg
+
+# Allow these for Docker build
+!Builds/
+!Dockerfile
+!railway.toml 
