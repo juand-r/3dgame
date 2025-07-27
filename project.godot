@@ -90,5 +90,6 @@ steer_right={
 [rendering]
 
 textures/canvas_textures/default_texture_filter=2
+textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/use_hdr_2d=false

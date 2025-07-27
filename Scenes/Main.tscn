@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3 uid="uid://cb8muxjrnqghi"]
 
-[ext_resource type="Script" path="res://Scripts/UI/MainUI.gd" id="1_8x7nh"]
+[ext_resource type="Script" uid="uid://d3pva58ufis70" path="res://Scripts/UI/MainUI.gd" id="1_8x7nh"]
 
 [sub_resource type="Environment" id="Environment_1rv37"]
 background_mode = 1
@@ -22,7 +22,6 @@ environment = SubResource("Environment_1rv37")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="Environment"]
 transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 10, 0)
-light_energy = 1.0
 shadow_enabled = true
 
 [node name="Ground" type="StaticBody3D" parent="Environment"]
@@ -42,8 +41,8 @@ script = ExtResource("1_8x7nh")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.3)
 mouse_filter = 2
+color = Color(0, 0, 0, 0.3)
 
 [node name="MainMenu" type="VBoxContainer" parent="UI"]
 anchors_preset = 8
@@ -79,8 +78,8 @@ horizontal_alignment = 1
 
 [node name="PortInput" type="LineEdit" parent="UI/MainMenu/ServerSection"]
 layout_mode = 2
-placeholder_text = "Port (default: 8080)"
 text = "8080"
+placeholder_text = "Port (default: 8080)"
 
 [node name="StartServerButton" type="Button" parent="UI/MainMenu/ServerSection"]
 layout_mode = 2
@@ -99,13 +98,13 @@ horizontal_alignment = 1
 
 [node name="AddressInput" type="LineEdit" parent="UI/MainMenu/ClientSection"]
 layout_mode = 2
-placeholder_text = "Server Address (e.g., 127.0.0.1)"
 text = "127.0.0.1"
+placeholder_text = "Server Address (e.g., 127.0.0.1)"
 
 [node name="ClientPortInput" type="LineEdit" parent="UI/MainMenu/ClientSection"]
 layout_mode = 2
-placeholder_text = "Port (default: 8080)"
 text = "8080"
+placeholder_text = "Port (default: 8080)"
 
 [node name="ConnectButton" type="Button" parent="UI/MainMenu/ClientSection"]
 layout_mode = 2
@@ -154,12 +153,13 @@ horizontal_alignment = 1
 
 [node name="GameHUD" type="Control" parent="UI"]
 visible = false
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="TopLeft" type="VBoxContainer" parent="UI/GameHUD"]
-anchors_preset = 2
+layout_mode = 0
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 10.0
@@ -180,7 +180,7 @@ layout_mode = 2
 text = "Ping: 0ms | Sent: 0KB | Received: 0KB"
 
 [node name="TopRight" type="VBoxContainer" parent="UI/GameHUD"]
-anchors_preset = 3
+layout_mode = 0
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -310.0
