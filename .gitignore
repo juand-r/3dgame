@@ -52,4 +52,12 @@ ehthumbs.db
 Thumbs.db
 
 # Railway specific files (keep these but add to gitignore if sensitive)
-# railway.toml  # Uncomment if this contains sensitive info 
+# railway.toml  # Uncomment if this contains sensitive info
+
+# Textures (optional - uncomment if you want to exclude texture files from git)
+# Textures/
+# *.jpg
+# *.png
+# *.tga
+# *.exr
+# *.hdr 
