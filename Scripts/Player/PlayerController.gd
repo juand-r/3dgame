@@ -14,6 +14,9 @@ var is_local_player: bool = false
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 
+# Character model reference
+@onready var character_model: Node3D = $Mage
+
 # Movement state
 var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 
@@ -96,6 +99,13 @@ func handle_movement_input(delta):
     var direction = Vector3.ZERO
     if input_dir != Vector2.ZERO:
         direction = (camera_pivot.transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+    
+    # Movement-based rotation (like real games) - but don't rotate when moving backward
+    if character_model and direction != Vector3.ZERO:
+        # Only rotate if NOT moving primarily backward (S key)
+        if input_dir.y <= 0:  # Forward or sideways movement, but not backward
+            var target_rotation = atan2(direction.x, direction.z)
+            character_model.rotation.y = lerp_angle(character_model.rotation.y, target_rotation, 10.0 * delta)
     
     # Apply movement
     if direction:
