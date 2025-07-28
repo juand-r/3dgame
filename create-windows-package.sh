@@ -18,7 +18,7 @@ if [ ! -f "Builds/client/3d-game-client.exe" ]; then
     echo ""
     echo "🔧 TO FIX:"
     echo "   1. Open Godot Editor"
-    echo "   2. Project → Export → Check 'Windows' preset exists"
+    echo "   2. Project → Export → Check 'Windows Desktop' preset exists"
     echo "   3. Export Path: Builds/client/3d-game-client.exe"
     echo "   4. Check 'Embed PCK' option"
     echo "   5. Architecture: x86_64"
