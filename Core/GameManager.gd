@@ -38,6 +38,9 @@ var spawn_points: Array[Vector3] = []
 # Player scene reference
 const PlayerScene = preload("res://Scenes/Player/Player.tscn")
 
+# Single player mode flag
+var single_player_mode: bool = false
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
@@ -742,3 +745,26 @@ func print_debug_info():
 	# Also print network debug info
 	if NetworkManager:
 		NetworkManager.print_debug_info()
+
+func start_single_player_mode(port: int = 8080) -> bool:
+	"""Start single player mode with auto-server and auto-connect"""
+	GameEvents.log_info("Starting Single Player mode on port %d" % port)
+	
+	if is_server or is_client:
+		GameEvents.log_error("Cannot start single player: already connected")
+		return false
+	
+	# Set single player flag
+	single_player_mode = true
+	
+	# Just start a local server with a local player - that's it!
+	GameEvents.log_info("Single Player: Starting local server with local player...")
+	var server_success = start_server(port)
+	
+	if not server_success:
+		GameEvents.log_error("Single Player: Failed to start local server")
+		single_player_mode = false
+		return false
+	
+	GameEvents.log_info("Single Player: Mode started successfully!")
+	return true

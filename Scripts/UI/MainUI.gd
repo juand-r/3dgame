@@ -1,27 +1,67 @@
-# MainUI.gd - Multiplayer Game UI Handler
-# Handles the main menu interface and networking status updates
+# MainUI.gd - Main Menu System & UI Handler
+# Handles the multi-screen menu interface and game state management
 extends CanvasLayer
 
-# UI References
-@onready var main_menu = $MainMenu
+# ============================================================================
+# SCREEN REFERENCES
+# ============================================================================
+
+# Main screen containers
+@onready var menu_system = $MenuSystem
+@onready var welcome_screen = $MenuSystem/WelcomeScreen
+@onready var single_player_screen = $MenuSystem/SinglePlayerScreen
+@onready var multiplayer_screen = $MenuSystem/MultiplayerScreen
+@onready var settings_screen = $MenuSystem/SettingsScreen
+@onready var game_maker_screen = $MenuSystem/GameMakerScreen
 @onready var game_hud = $GameHUD
 
-# Input fields
-@onready var port_input = $MainMenu/ServerSection/PortInput
-@onready var address_input = $MainMenu/ClientSection/AddressInput
-@onready var client_port_input = $MainMenu/ClientSection/ClientPortInput
+# Settings Panel References
+@onready var settings_main_container = $MenuSystem/SettingsScreen/SettingsContainer
+@onready var audio_panel = $MenuSystem/SettingsScreen/AudioPanel
+@onready var graphics_panel = $MenuSystem/SettingsScreen/GraphicsPanel
+@onready var controls_panel = $MenuSystem/SettingsScreen/ControlsPanel
 
-# Status labels
-@onready var status_label = $MainMenu/StatusSection/StatusLabel
-@onready var players_label = $MainMenu/StatusSection/PlayersLabel
+# Audio Controls
+@onready var master_volume_slider = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/MasterVolumeContainer/MasterVolumeSlider
+@onready var master_volume_value = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/MasterVolumeContainer/MasterVolumeValue
+@onready var music_volume_slider = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/MusicVolumeContainer/MusicVolumeSlider
+@onready var music_volume_value = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/MusicVolumeContainer/MusicVolumeValue
+@onready var sfx_volume_slider = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/SFXVolumeContainer/SFXVolumeSlider
+@onready var sfx_volume_value = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/SFXVolumeContainer/SFXVolumeValue
+
+# Graphics Controls
+@onready var resolution_option = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/ResolutionContainer/ResolutionOption
+@onready var fullscreen_toggle = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/FullscreenContainer/FullscreenToggle
+@onready var vsync_toggle = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/VSyncContainer/VSyncToggle
+@onready var quality_option = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/QualityContainer/QualityOption
+
+# Multiplayer UI elements (from old system, kept for compatibility)
+@onready var address_input = $MenuSystem/MultiplayerScreen/MultiplayerContainer/CustomServerSection/AddressInput
+@onready var port_input = $MenuSystem/MultiplayerScreen/MultiplayerContainer/CustomServerSection/PortInput
+@onready var status_label = $MenuSystem/MultiplayerScreen/MultiplayerContainer/StatusLabel
 
 # GameHUD elements
 @onready var hud_connection_status = $GameHUD/TopLeft/ConnectionStatus
 @onready var hud_player_count = $GameHUD/TopLeft/PlayerCount
 @onready var hud_network_stats = $GameHUD/TopLeft/NetworkStats
 
+# ============================================================================
+# MENU STATE MANAGEMENT
+# ============================================================================
+
+enum MenuState {
+    WELCOME,
+    SINGLE_PLAYER,
+    MULTIPLAYER,
+    SETTINGS,
+    GAME_MAKER,
+    IN_GAME
+}
+
+var current_menu_state: MenuState = MenuState.WELCOME
+
 func _ready():
-    GameEvents.log_info("MainUI initialized")
+    GameEvents.log_info("MainUI initialized - Multi-screen menu system")
     
     # Connect to game events
     GameEvents.game_state_changed.connect(_on_game_state_changed)
@@ -29,46 +69,495 @@ func _ready():
     GameEvents.player_disconnected.connect(_on_player_disconnected)
     GameEvents.connection_status_updated.connect(_on_connection_status_updated)
     
-    # Set default values for input fields
-    address_input.text = "3d-game-production.up.railway.app"
+    # Load and apply settings
+    _load_settings()
+    
+    # Initialize settings UI
+    _initialize_settings_ui()
     
     # Initialize UI state
+    show_welcome_screen()
     _update_ui_state()
 
-# Input handling moved to GameManager - UI uses buttons instead
+func _input(event):
+    # Handle ESC key for back navigation and in-game menu
+    if event.is_action_pressed("ui_cancel"):  # ESC key
+        if GameManager and GameManager.get_current_state() == GameManager.GameState.IN_GAME:
+            # In-game: show settings menu (future implementation)
+            GameEvents.log_info("ESC pressed in-game - Settings menu (TODO)")
+        elif current_menu_state != MenuState.WELCOME:
+            # In menus: go back to welcome screen
+            show_welcome_screen()
+    
+    # Handle F11 for fullscreen toggle and F10 for VSync toggle
+    if event is InputEventKey and event.pressed:
+        if event.keycode == KEY_F11:
+            toggle_fullscreen()
+        elif event.keycode == KEY_F10:
+            toggle_vsync()
 
 # ============================================================================
-# BUTTON SIGNAL METHODS
+# SCREEN NAVIGATION
 # ============================================================================
 
-func _on_start_server_button_pressed():
-    GameEvents.log_info("UI: Starting server...")
+func show_welcome_screen():
+    """Show the main welcome screen with 4 main options"""
+    _hide_all_screens()
+    welcome_screen.visible = true
+    current_menu_state = MenuState.WELCOME
+    GameEvents.log_info("UI: Switched to Welcome screen")
+
+func show_single_player_screen():
+    """Show the single player options screen"""
+    _hide_all_screens()
+    single_player_screen.visible = true
+    current_menu_state = MenuState.SINGLE_PLAYER
+    GameEvents.log_info("UI: Switched to Single Player screen")
+
+func show_multiplayer_screen():
+    """Show the multiplayer connection screen"""
+    _hide_all_screens()
+    multiplayer_screen.visible = true
+    current_menu_state = MenuState.MULTIPLAYER
+    GameEvents.log_info("UI: Switched to Multiplayer screen")
+
+func show_settings_screen():
+    """Show the settings configuration screen"""
+    _hide_all_screens()
+    settings_screen.visible = true
+    current_menu_state = MenuState.SETTINGS
+    GameEvents.log_info("UI: Switched to Settings screen")
+
+func show_game_maker_screen():
+    """Show Game Maker screen"""
+    GameEvents.log_info("UI: Switched to Game Maker screen")
+    _hide_all_screens()
+    game_maker_screen.visible = true
+    current_menu_state = MenuState.GAME_MAKER
+    
+    # Show placeholder functionality
+    _show_game_maker_info()
+
+func _hide_all_screens():
+    """Hide all menu screens"""
+    welcome_screen.visible = false
+    single_player_screen.visible = false
+    multiplayer_screen.visible = false
+    settings_screen.visible = false
+    game_maker_screen.visible = false
+
+# ============================================================================
+# WELCOME SCREEN BUTTON HANDLERS
+# ============================================================================
+
+func _on_single_player_button_pressed():
+    """Handle Single Player button press"""
+    GameEvents.log_info("UI: Single Player button pressed")
+    show_single_player_screen()
+
+func _on_multiplayer_button_pressed():
+    """Handle Multiplayer button press"""
+    GameEvents.log_info("UI: Multiplayer button pressed")
+    show_multiplayer_screen()
+
+func _on_settings_button_pressed():
+    """Handle Settings button press"""
+    GameEvents.log_info("UI: Settings button pressed")
+    show_settings_screen()
+
+func _on_game_maker_button_pressed():
+    """Handle Game Maker button press"""
+    GameEvents.log_info("UI: Game Maker button pressed")
+    show_game_maker_screen()
+
+func _on_exit_button_pressed():
+    """Handle Exit Game button press"""
+    GameEvents.log_info("UI: Exit Game button pressed")
+    get_tree().quit()
+
+# ============================================================================
+# SINGLE PLAYER SCREEN HANDLERS
+# ============================================================================
+
+func _on_new_game_button_pressed():
+    """Handle New Game button press - Start single player mode"""
+    GameEvents.log_info("UI: Starting Single Player New Game")
+    
+    # Start single player mode using GameManager
+    _start_single_player_mode()
+
+func _start_single_player_mode():
+    """Start single player mode - simplified approach"""
+    GameEvents.log_info("Single Player: Initializing...")
+    
+    # Get an available port for local server
+    var local_port = _get_available_port()
+    
+    # Update status
+    status_label.text = "Single Player: Starting..."
+    
+    # Use GameManager's simple single player mode
+    var success = GameManager.start_single_player_mode(local_port)
+    
+    if success:
+        GameEvents.log_info("Single Player: Started successfully!")
+        status_label.text = "Single Player: Ready!"
+    else:
+        GameEvents.log_error("Single Player: Failed to start")
+        status_label.text = "Single Player: Failed to start"
+
+func _get_available_port() -> int:
+    """Get an available port for local server (simple implementation)"""
+    # For now, use a default port range for single player
+    # In production, we'd check if ports are actually available
+    return 8080 + randi() % 100  # Random port between 8080-8179
+
+# ============================================================================
+# MULTIPLAYER SCREEN HANDLERS
+# ============================================================================
+
+func _on_quick_join_button_pressed():
+    """Handle Quick Join button - Connect to Railway server instantly"""
+    GameEvents.log_info("UI: Quick Join to Railway server")
+    
+    # Auto-fill Railway server details and connect
+    address_input.text = "3d-game-production.up.railway.app"
+    port_input.text = "443"
+    
+    # Connect using existing logic
+    _connect_to_server()
+
+func _on_connect_button_pressed():
+    """Handle Connect button - Connect to custom server"""
+    GameEvents.log_info("UI: Connecting to custom server...")
+    _connect_to_server()
+
+func _on_host_server_button_pressed():
+    """Handle Host Server button - Start local server"""
+    GameEvents.log_info("UI: Starting local server...")
     var port = int(port_input.text) if port_input.text else 8080
     GameManager.start_server(port)
 
-func _on_connect_button_pressed():
-    GameEvents.log_info("UI: Connecting to server...")
+func _connect_to_server():
+    """Connect to server using current address/port inputs"""
     var address = address_input.text if address_input.text else "127.0.0.1"
-    var port = int(client_port_input.text) if client_port_input.text else 8080
+    var port = int(port_input.text) if port_input.text else 8080
     GameManager.connect_to_server(address, port)
 
-func _on_disconnect_button_pressed():
-    GameEvents.log_info("UI: Disconnecting...")
-    GameManager.disconnect_game()
+# ============================================================================
+# BACK BUTTON HANDLER
+# ============================================================================
 
-func _on_test_message_button_pressed():
-    GameEvents.log_info("UI: Sending test message...")
-    if NetworkManager.is_game_connected():
-        # Send a test message through the network
-        var test_data = {
-            "type": "test_message",
-            "message": "Hello from client!",
-            "timestamp": Time.get_unix_time_from_system()
-        }
-        NetworkManager.send_data(test_data)
+func _on_back_to_main_pressed():
+    """Handle Back to Main Menu button press"""
+    GameEvents.log_info("UI: Back to Main Menu")
+    show_welcome_screen()
 
 # ============================================================================
-# EVENT HANDLERS
+# SETTINGS SCREEN HANDLERS
+# ============================================================================
+
+func _on_audio_button_pressed():
+    """Handle Audio settings button - Show audio panel"""
+    GameEvents.log_info("UI: Opening Audio settings panel")
+    _show_audio_panel()
+
+func _on_controls_button_pressed():
+    """Handle Controls settings button - Show controls panel"""
+    GameEvents.log_info("UI: Opening Controls settings panel")
+    _show_controls_panel()
+
+func _on_graphics_button_pressed():
+    """Handle Graphics settings button - Show graphics panel"""
+    GameEvents.log_info("UI: Opening Graphics settings panel")
+    _show_graphics_panel()
+
+func _show_audio_panel():
+    """Show the audio settings panel"""
+    _hide_all_settings_panels()
+    settings_main_container.visible = false
+    audio_panel.visible = true
+    
+func _show_controls_panel():
+    """Show the controls settings panel"""
+    _hide_all_settings_panels()
+    settings_main_container.visible = false
+    controls_panel.visible = true
+    
+func _show_graphics_panel():
+    """Show the graphics settings panel"""
+    _hide_all_settings_panels()
+    settings_main_container.visible = false
+    graphics_panel.visible = true
+
+func _hide_all_settings_panels():
+    """Hide all settings sub-panels"""
+    audio_panel.visible = false
+    graphics_panel.visible = false
+    controls_panel.visible = false
+
+func _show_settings_main():
+    """Show the main settings screen"""
+    _hide_all_settings_panels()
+    settings_main_container.visible = true
+
+# ============================================================================
+# SETTINGS FUNCTIONALITY
+# ============================================================================
+
+func _initialize_settings_ui():
+    """Initialize all settings UI elements with current values"""
+    _setup_audio_controls()
+    _setup_graphics_controls()
+    
+func _setup_audio_controls():
+    """Setup audio controls with current volume levels"""
+    # Master volume (bus 0)
+    var master_db = AudioServer.get_bus_volume_db(0)
+    var master_percent = int((master_db + 80) * 100 / 80)  # Convert dB to percentage
+    master_percent = max(0, min(100, master_percent))  # Clamp to 0-100
+    master_volume_slider.value = master_percent
+    master_volume_value.text = str(master_percent) + "%"
+    
+    # Music volume (bus 1) - create if doesn't exist
+    if AudioServer.bus_count <= 1:
+        AudioServer.add_bus(1)
+        AudioServer.set_bus_name(1, "Music")
+    var music_db = AudioServer.get_bus_volume_db(1)
+    var music_percent = int((music_db + 80) * 100 / 80)
+    music_percent = max(0, min(100, music_percent))
+    music_volume_slider.value = music_percent
+    music_volume_value.text = str(music_percent) + "%"
+    
+    # SFX volume (bus 2) - create if doesn't exist
+    if AudioServer.bus_count <= 2:
+        AudioServer.add_bus(2)
+        AudioServer.set_bus_name(2, "SFX")
+    var sfx_db = AudioServer.get_bus_volume_db(2)
+    var sfx_percent = int((sfx_db + 80) * 100 / 80)
+    sfx_percent = max(0, min(100, sfx_percent))
+    sfx_volume_slider.value = sfx_percent
+    sfx_volume_value.text = str(sfx_percent) + "%"
+
+func _setup_graphics_controls():
+    """Setup graphics controls with current values"""
+    var window = get_window()
+    
+    # Setup resolution dropdown
+    resolution_option.clear()
+    var common_resolutions = [
+        "1280x720", "1366x768", "1600x900", "1920x1080", 
+        "2560x1440", "3840x2160"
+    ]
+    var current_size = window.size
+    var current_res = str(current_size.x) + "x" + str(current_size.y)
+    
+    for i in range(common_resolutions.size()):
+        resolution_option.add_item(common_resolutions[i])
+        if common_resolutions[i] == current_res:
+            resolution_option.selected = i
+    
+    # Add current resolution if not in list
+    if resolution_option.selected == -1:
+        resolution_option.add_item(current_res + " (Current)")
+        resolution_option.selected = resolution_option.get_item_count() - 1
+    
+    # Setup fullscreen toggle
+    fullscreen_toggle.button_pressed = (window.mode == Window.MODE_FULLSCREEN)
+    
+    # Setup VSync toggle
+    vsync_toggle.button_pressed = (DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED)
+    
+    # Setup quality dropdown
+    quality_option.clear()
+    quality_option.add_item("Low")
+    quality_option.add_item("Medium")
+    quality_option.add_item("High")
+    quality_option.add_item("Ultra")
+    quality_option.selected = 2  # Default to High
+
+# ============================================================================
+# AUDIO CONTROL HANDLERS
+# ============================================================================
+
+func _on_master_volume_changed(value: float):
+    """Handle master volume slider change"""
+    var db = (value * 80 / 100) - 80  # Convert percentage to dB
+    AudioServer.set_bus_volume_db(0, db)
+    master_volume_value.text = str(int(value)) + "%"
+    _save_audio_setting("master_volume", value)
+    GameEvents.log_info("Master volume set to %d%%" % int(value))
+
+func _on_music_volume_changed(value: float):
+    """Handle music volume slider change"""
+    var db = (value * 80 / 100) - 80
+    AudioServer.set_bus_volume_db(1, db)
+    music_volume_value.text = str(int(value)) + "%"
+    _save_audio_setting("music_volume", value)
+    GameEvents.log_info("Music volume set to %d%%" % int(value))
+
+func _on_sfx_volume_changed(value: float):
+    """Handle SFX volume slider change"""
+    var db = (value * 80 / 100) - 80
+    AudioServer.set_bus_volume_db(2, db)
+    sfx_volume_value.text = str(int(value)) + "%"
+    _save_audio_setting("sfx_volume", value)
+    GameEvents.log_info("SFX volume set to %d%%" % int(value))
+
+# ============================================================================
+# GRAPHICS CONTROL HANDLERS
+# ============================================================================
+
+func _on_resolution_selected(index: int):
+    """Handle resolution dropdown selection"""
+    var resolution_text = resolution_option.get_item_text(index)
+    var parts = resolution_text.split("x")
+    if parts.size() == 2:
+        var width = int(parts[0])
+        var height = int(parts[1].split(" ")[0])  # Remove "(Current)" if present
+        get_window().size = Vector2i(width, height)
+        _save_graphics_setting("resolution", resolution_text)
+        GameEvents.log_info("Resolution changed to %s" % resolution_text)
+
+func _on_fullscreen_toggled(pressed: bool):
+    """Handle fullscreen toggle"""
+    var window = get_window()
+    if pressed:
+        window.mode = Window.MODE_FULLSCREEN
+        GameEvents.log_info("Fullscreen enabled")
+    else:
+        window.mode = Window.MODE_WINDOWED
+        GameEvents.log_info("Fullscreen disabled")
+    _save_graphics_setting("fullscreen", pressed)
+
+func _on_vsync_toggled(pressed: bool):
+    """Handle VSync toggle"""
+    if pressed:
+        DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+        GameEvents.log_info("VSync enabled")
+    else:
+        DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+        GameEvents.log_info("VSync disabled")
+    _save_graphics_setting("vsync", pressed)
+
+func _on_quality_selected(index: int):
+    """Handle graphics quality selection"""
+    var quality_names = ["Low", "Medium", "High", "Ultra"]
+    var quality_name = quality_names[index]
+    _save_graphics_setting("quality", quality_name)
+    GameEvents.log_info("Graphics quality set to %s" % quality_name)
+    # TODO: Implement actual quality changes
+
+# ============================================================================
+# SETTINGS PANEL BACK BUTTONS
+# ============================================================================
+
+func _on_audio_back_pressed():
+    """Return to main settings from audio panel"""
+    GameEvents.log_info("UI: Returning to main settings from audio")
+    _show_settings_main()
+
+func _on_graphics_back_pressed():
+    """Return to main settings from graphics panel"""
+    GameEvents.log_info("UI: Returning to main settings from graphics")
+    _show_settings_main()
+
+func _on_controls_back_pressed():
+    """Return to main settings from controls panel"""
+    GameEvents.log_info("UI: Returning to main settings from controls")
+    _show_settings_main()
+
+# ============================================================================
+# SETTINGS PERSISTENCE
+# ============================================================================
+
+func _save_audio_setting(key: String, value):
+    """Save audio setting to config"""
+    var config = ConfigFile.new()
+    config.load("user://settings.cfg")
+    config.set_value("audio", key, value)
+    config.save("user://settings.cfg")
+
+func _save_graphics_setting(key: String, value):
+    """Save graphics setting to config"""
+    var config = ConfigFile.new()
+    config.load("user://settings.cfg")
+    config.set_value("graphics", key, value)
+    config.save("user://settings.cfg")
+
+func _load_settings():
+    """Load settings from file"""
+    var config = ConfigFile.new()
+    var err = config.load("user://settings.cfg")
+    
+    if err != OK:
+        GameEvents.log_info("No settings file found, creating defaults")
+        _create_default_settings()
+        return
+    
+    # Load audio settings  
+    var master_volume = config.get_value("audio", "master_volume", 100.0)
+    var music_volume = config.get_value("audio", "music_volume", 80.0)
+    var sfx_volume = config.get_value("audio", "sfx_volume", 90.0)
+    
+    # Apply audio settings
+    AudioServer.set_bus_volume_db(0, (master_volume * 80 / 100) - 80)
+    if AudioServer.bus_count > 1:
+        AudioServer.set_bus_volume_db(1, (music_volume * 80 / 100) - 80)
+    if AudioServer.bus_count > 2:
+        AudioServer.set_bus_volume_db(2, (sfx_volume * 80 / 100) - 80)
+    
+    # Load graphics settings
+    var fullscreen = config.get_value("graphics", "fullscreen", false)
+    var vsync = config.get_value("graphics", "vsync", true)
+    var resolution = config.get_value("graphics", "resolution", "1152x648")
+    
+    # Apply graphics settings
+    var window = get_window()
+    var res_parts = resolution.split("x")
+    if res_parts.size() == 2:
+        window.size = Vector2i(int(res_parts[0]), int(res_parts[1]))
+    window.mode = Window.MODE_FULLSCREEN if fullscreen else Window.MODE_WINDOWED
+    DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
+    
+    GameEvents.log_info("Settings loaded from user://settings.cfg")
+
+func _create_default_settings():
+    """Create default settings file"""
+    var config = ConfigFile.new()
+    
+    # Default audio settings
+    config.set_value("audio", "master_volume", 100.0)
+    config.set_value("audio", "music_volume", 80.0)
+    config.set_value("audio", "sfx_volume", 90.0)
+    
+    # Default graphics settings
+    config.set_value("graphics", "fullscreen", false)
+    config.set_value("graphics", "vsync", true)
+    config.set_value("graphics", "resolution", "1152x648")
+    config.set_value("graphics", "quality", "High")
+    
+    config.save("user://settings.cfg")
+    GameEvents.log_info("Default settings created")
+
+# ============================================================================
+# SETTINGS FUNCTIONALITY
+# ============================================================================
+
+func toggle_fullscreen():
+    """Toggle fullscreen mode (F11 shortcut)"""
+    if fullscreen_toggle:
+        fullscreen_toggle.button_pressed = !fullscreen_toggle.button_pressed
+        _on_fullscreen_toggled(fullscreen_toggle.button_pressed)
+
+func toggle_vsync():
+    """Toggle VSync (F10 shortcut)"""
+    if vsync_toggle:
+        vsync_toggle.button_pressed = !vsync_toggle.button_pressed
+        _on_vsync_toggled(vsync_toggle.button_pressed)
+
+# ============================================================================
+# GAME EVENT HANDLERS (Legacy - kept for compatibility)
 # ============================================================================
 
 func _on_game_state_changed(new_state):
@@ -93,6 +582,7 @@ func _on_connection_status_updated(status_text):
 # ============================================================================
 
 func _update_ui_state():
+    """Update UI based on current game state"""
     if not GameManager:
         return  # GameManager not ready yet
         
@@ -103,20 +593,26 @@ func _update_ui_state():
     match current_state:
         GameManager.GameState.MENU:
             status_text = "Ready"
-            main_menu.visible = true
+            menu_system.visible = true
             game_hud.visible = false
         GameManager.GameState.CONNECTING:
             status_text = "Connecting..."
-            main_menu.visible = true
+            menu_system.visible = true
             game_hud.visible = false
         GameManager.GameState.IN_GAME:
             status_text = "In Game"
-            main_menu.visible = false
+            menu_system.visible = false
             game_hud.visible = true
+            current_menu_state = MenuState.IN_GAME
         GameManager.GameState.DISCONNECTED:
             status_text = "Disconnected"
-            main_menu.visible = true
+            menu_system.visible = true
             game_hud.visible = false
+            # Return to appropriate menu based on mode
+            if GameManager.single_player_mode:
+                show_welcome_screen()  # Single player returns to main menu
+            else:
+                show_multiplayer_screen()  # Multiplayer returns to multiplayer screen
     
     status_label.text = "Status: " + status_text
     _update_player_count()
@@ -126,6 +622,7 @@ func _update_ui_state():
         _update_network_stats()
 
 func _update_player_count():
+    """Update player count display"""
     if not GameManager:
         return  # GameManager not ready yet
         
@@ -133,11 +630,13 @@ func _update_player_count():
     var max_players = 4
     var count_text = "Players: %d/%d" % [count, max_players]
     
-    players_label.text = count_text
+    # Update both menu and HUD displays
+    # (No players label in new menu design, but keep for HUD)
     if game_hud.visible:
         hud_player_count.text = count_text
 
 func _update_network_stats():
+    """Update network statistics display"""
     if not NetworkManager:
         return  # NetworkManager not ready yet
         
@@ -154,15 +653,6 @@ func _update_network_stats():
     if game_hud.visible:
         hud_network_stats.text = stats_text
 
-func _toggle_debug_info():
-    # Toggle between main menu and game HUD for debugging
-    if main_menu.visible:
-        main_menu.visible = false
-        game_hud.visible = true
-    else:
-        main_menu.visible = true
-        game_hud.visible = false
-
 # ============================================================================
 # PERIODIC UPDATES
 # ============================================================================
@@ -171,3 +661,10 @@ func _process(_delta):
     # Update network stats periodically when in game
     if GameManager and GameManager.get_current_state() == GameManager.GameState.IN_GAME:
         _update_network_stats()
+
+func _show_game_maker_info():
+    """Show Game Maker placeholder information"""
+    GameEvents.log_info("Game Maker: Level Editor - Coming Soon!")
+    GameEvents.log_info("Game Maker: Future features - Terrain editing, Object placement, Texture painting")
+    GameEvents.log_info("Game Maker: Save/Load custom maps, Share with friends")
+    GameEvents.log_info("Game Maker: Press ESC or Back button to return to main menu")
