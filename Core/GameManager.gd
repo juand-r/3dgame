@@ -435,6 +435,15 @@ func load_game_world():
 	# Add to scene tree
 	get_tree().current_scene.add_child(current_world_scene)
 	
+	# WORKAROUND: Manually assign WorldManager script (scene attachment isn't working)
+	var world_manager = current_world_scene.get_node_or_null("WorldManager")
+	if world_manager and world_manager.get_script() == null:
+		var script = load("res://Scripts/World/WorldManager.gd")
+		world_manager.set_script(script)
+		# Manually call _ready since it won't be called automatically
+		if world_manager.has_method("_ready"):
+			world_manager._ready()
+	
 	# Update spawn points from world
 	update_spawn_points_from_world()
 	

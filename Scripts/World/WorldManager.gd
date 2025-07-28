@@ -26,6 +26,9 @@ func _ready():
 	# Find world components
 	find_world_components()
 	
+	# Apply PBR textures first
+	setup_real_textures()
+	
 	# Set up dynamic elements
 	if enable_ambient_effects:
 		setup_building_lights()
@@ -163,6 +166,243 @@ func get_random_spawn_position() -> Vector3:
 	
 	# Fallback to center if no good position found
 	return Vector3(0, 2, 0)
+
+func setup_real_textures():
+	"""Apply real PBR textures to world surfaces"""
+	print("[WORLD] 🎨 Applying real PBR textures...")
+	
+	# Apply desert texture to ground
+	apply_real_desert_texture()
+	
+	# Apply fallback materials to other objects
+	apply_fallback_building_materials()
+	apply_real_wood_textures()
+
+func apply_real_desert_texture():
+	"""Apply downloaded PBR desert texture to the ground"""
+	print("[WORLD] 🔍 Looking for ground node...")
+	
+	var ground_node = get_node_or_null("../Terrain/Ground")
+	if not ground_node:
+		print("[WORLD] ❌ Ground node not found")
+		return
+	
+	print("[WORLD] 🔍 Ground node found:", ground_node)
+	
+	# Create desert PBR material
+	var desert_material = create_desert_pbr_material()
+	if desert_material:
+		ground_node.material_override = desert_material
+		print("[WORLD] ✅ Real desert PBR texture applied successfully!")
+	else:
+		print("[WORLD] ❌ Failed to create desert material")
+
+func create_desert_pbr_material() -> StandardMaterial3D:
+	"""Create PBR material with downloaded desert textures"""
+	print("[WORLD] 🎨 Creating desert PBR material...")
+	
+	var material = StandardMaterial3D.new()
+	
+	# Base paths
+	var texture_base = "res://Textures/Ground/ground_0041_2k_N0kbi3/"
+	
+	# Load each texture map
+	var textures = {
+		"color": texture_base + "ground_0041_color_2k.jpg",
+		"normal_opengl": texture_base + "ground_0041_normal_opengl_2k.png", 
+		"roughness": texture_base + "ground_0041_roughness_2k.jpg",
+		"ao": texture_base + "ground_0041_ao_2k.jpg",
+		"height": texture_base + "ground_0041_height_2k.png"
+	}
+	
+	# Apply color/albedo
+	if ResourceLoader.exists(textures.color):
+		material.albedo_texture = load(textures.color)
+		print("[WORLD] ✅ Applied desert albedo texture")
+	
+	# Apply normal map
+	if ResourceLoader.exists(textures.normal_opengl):
+		material.normal_enabled = true
+		material.normal_texture = load(textures.normal_opengl)
+		material.normal_scale = 1.0
+		print("[WORLD] ✅ Applied desert normal map")
+	
+	# Apply roughness map
+	if ResourceLoader.exists(textures.roughness):
+		material.roughness_texture = load(textures.roughness)
+		print("[WORLD] ✅ Applied desert roughness map")
+	
+	# Apply AO map
+	if ResourceLoader.exists(textures.ao):
+		material.ao_enabled = true
+		material.ao_texture = load(textures.ao)
+		material.ao_light_affect = 1.0
+		print("[WORLD] ✅ Applied desert AO map")
+	
+	# Apply height/displacement map
+	if ResourceLoader.exists(textures.height):
+		material.heightmap_enabled = true
+		material.heightmap_texture = load(textures.height)
+		material.heightmap_scale = 0.1
+		print("[WORLD] ✅ Applied desert height map")
+	
+	# Set up UV tiling for better coverage
+	material.uv1_scale = Vector3(50.0, 50.0, 1.0)  # Tile the texture
+	
+	return material
+
+func apply_fallback_building_materials():
+	"""Apply concrete PBR textures to buildings"""
+	print("[WORLD] 🏢 Applying concrete PBR textures to buildings...")
+	
+	# Create concrete material
+	var concrete_material = create_concrete_pbr_material()
+	if not concrete_material:
+		print("[WORLD] ❌ Failed to create concrete material for buildings")
+		return
+	
+	# Apply to all buildings
+	var buildings_count = 0
+	for building in buildings:
+		if building and not building.material_override:
+			building.material_override = concrete_material
+			buildings_count += 1
+			print("[WORLD] ✅ Applied concrete texture to building:", building.name)
+	
+	print("[WORLD] ✅ Concrete textures applied to %d buildings!" % buildings_count)
+
+func apply_real_wood_textures():
+	"""Apply real PBR wood textures to barriers/obstacles"""
+	print("[WORLD] 🌲 Applying wood PBR textures to barriers...")
+	
+	var obstacles_node = get_node_or_null("../Obstacles")
+	if not obstacles_node:
+		print("[WORLD] ❌ Obstacles node not found")
+		return
+	
+	# Create wood PBR material
+	var wood_material = create_wood_pbr_material()
+	if not wood_material:
+		print("[WORLD] ❌ Failed to create wood material")
+		return
+	
+	# Apply to all barriers
+	var barriers_count = 0
+	for child in obstacles_node.get_children():
+		if child is MeshInstance3D:
+			child.material_override = wood_material
+			barriers_count += 1
+			print("[WORLD] ✅ Applied wood texture to:", child.name)
+	
+	print("[WORLD] ✅ Wood PBR textures applied to %d barriers!" % barriers_count)
+
+func create_wood_pbr_material() -> StandardMaterial3D:
+	"""Create PBR material with downloaded wood textures"""
+	print("[WORLD] 🎨 Creating wood PBR material...")
+	
+	var material = StandardMaterial3D.new()
+	
+	# Base paths
+	var texture_base = "res://Textures/Barriers/wood_0046_2k_YXviLg/"
+	
+	# Load each texture map
+	var textures = {
+		"color": texture_base + "wood_0046_color_2k.jpg",
+		"normal_opengl": texture_base + "wood_0046_normal_opengl_2k.png", 
+		"roughness": texture_base + "wood_0046_roughness_2k.jpg",
+		"ao": texture_base + "wood_0046_ambient_occlusion_2k.jpg",
+		"height": texture_base + "wood_0046_height_2k.png"
+	}
+	
+	# Apply color/albedo
+	if ResourceLoader.exists(textures.color):
+		material.albedo_texture = load(textures.color)
+		print("[WORLD] ✅ Applied wood albedo texture")
+	
+	# Apply normal map
+	if ResourceLoader.exists(textures.normal_opengl):
+		material.normal_enabled = true
+		material.normal_texture = load(textures.normal_opengl)
+		material.normal_scale = 1.0
+		print("[WORLD] ✅ Applied wood normal map")
+	
+	# Apply roughness map
+	if ResourceLoader.exists(textures.roughness):
+		material.roughness_texture = load(textures.roughness)
+		print("[WORLD] ✅ Applied wood roughness map")
+	
+	# Apply AO map
+	if ResourceLoader.exists(textures.ao):
+		material.ao_enabled = true
+		material.ao_texture = load(textures.ao)
+		material.ao_light_affect = 1.0
+		print("[WORLD] ✅ Applied wood AO map")
+	
+	# Apply height/displacement map
+	if ResourceLoader.exists(textures.height):
+		material.heightmap_enabled = true
+		material.heightmap_texture = load(textures.height)
+		material.heightmap_scale = 0.05  # Subtle displacement for wood
+		print("[WORLD] ✅ Applied wood height map")
+	
+	# Set up UV tiling appropriate for wood planks
+	material.uv1_scale = Vector3(2.0, 2.0, 1.0)  # Less tiling than ground
+	
+	return material
+
+func create_concrete_pbr_material() -> StandardMaterial3D:
+	"""Create PBR material with downloaded concrete textures"""
+	print("[WORLD] 🏭 Creating concrete PBR material...")
+	
+	var material = StandardMaterial3D.new()
+	
+	# Base paths
+	var texture_base = "res://Textures/Buildings/concrete_0018_2k_nJJC53/"
+	
+	# Load each texture map
+	var textures = {
+		"color": texture_base + "concrete_0018_color_2k.jpg",
+		"normal_opengl": texture_base + "concrete_0018_normal_opengl_2k.png", 
+		"roughness": texture_base + "concrete_0018_roughness_2k.jpg",
+		"ao": texture_base + "concrete_0018_ao_2k.jpg",
+		"height": texture_base + "concrete_0018_height_2k.png"
+	}
+	
+	# Apply color/albedo
+	if ResourceLoader.exists(textures.color):
+		material.albedo_texture = load(textures.color)
+		print("[WORLD] ✅ Applied concrete albedo texture")
+	
+	# Apply normal map
+	if ResourceLoader.exists(textures.normal_opengl):
+		material.normal_enabled = true
+		material.normal_texture = load(textures.normal_opengl)
+		material.normal_scale = 1.0
+		print("[WORLD] ✅ Applied concrete normal map")
+	
+	# Apply roughness map
+	if ResourceLoader.exists(textures.roughness):
+		material.roughness_texture = load(textures.roughness)
+		print("[WORLD] ✅ Applied concrete roughness map")
+	
+	# Apply AO map
+	if ResourceLoader.exists(textures.ao):
+		material.ao_enabled = true
+		material.ao_texture = load(textures.ao)
+		material.ao_light_affect = 1.0
+		print("[WORLD] ✅ Applied concrete AO map")
+	
+	# Apply height/displacement map
+	if ResourceLoader.exists(textures.height):
+		material.heightmap_enabled = true
+		material.heightmap_texture = load(textures.height)
+		material.heightmap_scale = 0.05  # Subtle displacement for concrete
+		print("[WORLD] ✅ Applied concrete height map")
+	
+	# Set up UV tiling appropriate for building concrete
+	material.uv1_scale = Vector3(4.0, 4.0, 1.0)  # More tiling for building scale
+	
+	return material
 
 func _input(event):
 	"""Debug controls for world testing"""
