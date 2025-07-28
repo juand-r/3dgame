@@ -28,7 +28,7 @@ echo ""
 
 # Windows Client
 echo "🪟 Building Windows client..."
-godot --headless --export-release "Windows" "Builds/client/3d-game-client.exe"
+godot --headless --export-release "Windows Desktop" "Builds/client/3d-game-client.exe"
 
 if [ -f "Builds/client/3d-game-client.exe" ]; then
     echo "✅ Windows Client build successful: Builds/client/3d-game-client.exe"
