@@ -22,9 +22,29 @@ else
     exit 1
 fi
 
-# Export client build (for testing)
-echo "🎮 Exporting macOS client build..."
+# Export client builds
+echo "🎮 Exporting client builds..."
 echo ""
+
+# Windows Client
+echo "🪟 Building Windows client..."
+godot --headless --export-release "Windows" "Builds/client/3d-game-client.exe"
+
+if [ -f "Builds/client/3d-game-client.exe" ]; then
+    echo "✅ Windows Client build successful: Builds/client/3d-game-client.exe"
+    
+    echo ""
+    echo "🪟 TO RUN WINDOWS CLIENT:"
+    echo "   1. Copy Builds/client/3d-game-client.exe to Windows computer"
+    echo "   2. Double-click to run (no installation needed)"
+    echo "   3. Connect to: 3d-game-production.up.railway.app"
+    echo ""
+else
+    echo "⚠️  Windows Client build failed (check export preset configuration)"
+fi
+
+# macOS Client  
+echo "🍎 Building macOS client..."
 echo "⚠️  NOTE: If you see Mac code signing warnings:"
 echo "   1. In Godot: Project → Export → macOS Client"
 echo "   2. Set Bundle Identifier to: com.yourname.3dgame"  
@@ -52,5 +72,6 @@ fi
 echo ""
 echo "🎯 Build Summary:"
 echo "- Server: $(ls -lh Builds/server/3d-game-server 2>/dev/null || echo 'Not found')"
+echo "- Windows Client: $(ls -lh Builds/client/3d-game-client.exe 2>/dev/null || echo 'Not found')"
 echo "- macOS Client: $(ls -ld Builds/client/3d-game-client.app 2>/dev/null || echo 'Not found')"
 echo "- Railway Copy: $(ls -lh ./game-server 2>/dev/null || echo 'Not found')" 
