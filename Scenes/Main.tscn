@@ -23,6 +23,10 @@ autoplay = false
 bus = "Music"
 autoplay = false
 
+[node name="ButtonClickPlayer" type="AudioStreamPlayer" parent="."]
+bus = "SFX"
+autoplay = false
+
 [node name="Environment" type="Node3D" parent="."]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]

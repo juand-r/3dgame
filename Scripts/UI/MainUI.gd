@@ -39,6 +39,9 @@ extends CanvasLayer
 # Game Music Player
 @onready var game_music_player = $"../GameMusicPlayer"
 
+# Button Click Sound Player
+@onready var button_click_player = $"../ButtonClickPlayer"
+
 # Graphics Controls
 @onready var resolution_option = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/ResolutionContainer/ResolutionOption
 @onready var fullscreen_toggle = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/FullscreenContainer/FullscreenToggle
@@ -79,6 +82,9 @@ func _ready():
     
     # Setup game music
     _setup_game_music()
+    
+    # Setup button click sound
+    _setup_button_click_sound()
     
     GameEvents.log_info("MainUI initialized - Multi-screen menu system")
     
@@ -164,27 +170,32 @@ func _hide_all_screens():
 # ============================================================================
 
 func _on_single_player_button_pressed():
-    """Handle Single Player button press"""
+    """Handle single player button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Single Player button pressed")
     show_single_player_screen()
 
 func _on_multiplayer_button_pressed():
-    """Handle Multiplayer button press"""
+    """Handle multiplayer button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Multiplayer button pressed")
     show_multiplayer_screen()
 
 func _on_settings_button_pressed():
-    """Handle Settings button press"""
+    """Handle settings button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Settings button pressed")
     show_settings_screen()
 
 func _on_game_maker_button_pressed():
-    """Handle Game Maker button press"""
+    """Handle game maker button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Game Maker button pressed")
     show_game_maker_screen()
 
 func _on_exit_button_pressed():
-    """Handle Exit Game button press"""
+    """Handle exit button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Exit Game button pressed")
     get_tree().quit()
 
@@ -193,10 +204,9 @@ func _on_exit_button_pressed():
 # ============================================================================
 
 func _on_new_game_button_pressed():
-    """Handle New Game button press - Start single player mode"""
+    """Handle new game button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Starting Single Player New Game")
-    
-    # Start single player mode using GameManager
     _start_single_player_mode()
 
 func _start_single_player_mode():
@@ -230,39 +240,40 @@ func _get_available_port() -> int:
 # ============================================================================
 
 func _on_quick_join_button_pressed():
-    """Handle Quick Join button - Connect to Railway server instantly"""
-    GameEvents.log_info("UI: Quick Join to Railway server")
+    """Handle quick join button press"""
+    _play_button_click()
+    GameEvents.log_info("UI: Quick Join button pressed")
     
-    # Auto-fill Railway server details and connect
-    address_input.text = "3d-game-production.up.railway.app"
-    port_input.text = "443"
+    # Get default server info
+    var default_address = address_input.text if address_input.text.strip_edges() != "" else "3d-game-production.up.railway.app"
+    var default_port = int(port_input.text) if port_input.text.strip_edges() != "" else 443
     
-    # Connect using existing logic
-    _connect_to_server()
+    # Attempt connection
+    _connect_to_server(default_address, default_port)
 
 func _on_connect_button_pressed():
-    """Handle Connect button - Connect to custom server"""
-    GameEvents.log_info("UI: Connecting to custom server...")
-    _connect_to_server()
+    """Handle connect button press"""
+    _play_button_click()
+    GameEvents.log_info("UI: Connect button pressed")
+    _connect_to_server(address_input.text, int(port_input.text))
 
 func _on_host_server_button_pressed():
-    """Handle Host Server button - Start local server"""
-    GameEvents.log_info("UI: Starting local server...")
-    var port = int(port_input.text) if port_input.text else 8080
-    GameManager.start_server(port)
+    """Handle host server button press"""
+    _play_button_click()
+    GameEvents.log_info("UI: Host Server button pressed")
+    # TODO: Implement host server functionality
 
-func _connect_to_server():
+func _connect_to_server(address: String = "127.0.0.1", port: int = 8080):
     """Connect to server using current address/port inputs"""
-    var address = address_input.text if address_input.text else "127.0.0.1"
-    var port = int(port_input.text) if port_input.text else 8080
     GameManager.connect_to_server(address, port)
 
 # ============================================================================
-# BACK BUTTON HANDLER
+# BACK BUTTON HANDLERS  
 # ============================================================================
 
 func _on_back_to_main_pressed():
-    """Handle Back to Main Menu button press"""
+    """Handle back to main menu button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Back to Main Menu")
     show_welcome_screen()
 
@@ -271,17 +282,20 @@ func _on_back_to_main_pressed():
 # ============================================================================
 
 func _on_audio_button_pressed():
-    """Handle Audio settings button - Show audio panel"""
+    """Handle audio settings button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Opening Audio settings panel")
     _show_audio_panel()
 
 func _on_controls_button_pressed():
-    """Handle Controls settings button - Show controls panel"""
+    """Handle controls settings button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Opening Controls settings panel")
     _show_controls_panel()
 
 func _on_graphics_button_pressed():
-    """Handle Graphics settings button - Show graphics panel"""
+    """Handle graphics settings button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Opening Graphics settings panel")
     _show_graphics_panel()
 
@@ -508,17 +522,20 @@ func _on_quality_selected(index: int):
 # ============================================================================
 
 func _on_audio_back_pressed():
-    """Return to main settings from audio panel"""
+    """Handle audio back button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Returning to main settings from audio")
     _show_settings_main()
 
 func _on_graphics_back_pressed():
-    """Return to main settings from graphics panel"""
+    """Handle graphics back button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Returning to main settings from graphics")
     _show_settings_main()
 
 func _on_controls_back_pressed():
-    """Return to main settings from controls panel"""
+    """Handle controls back button press"""
+    _play_button_click()
     GameEvents.log_info("UI: Returning to main settings from controls")
     _show_settings_main()
 
@@ -802,3 +819,28 @@ func _stop_game_music():
     if game_music_player and game_music_player.playing:
         game_music_player.stop()
         GameEvents.log_info("Game music stopped")
+
+func _setup_button_click_sound():
+    """Setup the button click sound player"""
+    if not button_click_player:
+        GameEvents.log_error("Button click player not found")
+        return
+        
+    var sound_path = "res://Audio/MenuSelectionClick.wav"
+    
+    # Check if file exists and is imported
+    if ResourceLoader.exists(sound_path):
+        var sound_stream = ResourceLoader.load(sound_path)
+        if sound_stream:
+            button_click_player.stream = sound_stream
+            GameEvents.log_info("Button click sound loaded from %s" % sound_path)
+        else:
+            GameEvents.log_error("Failed to load button click sound from %s" % sound_path)
+    else:
+        GameEvents.log_error("Button click sound file not found or not imported: %s" % sound_path)
+        GameEvents.log_info("Please open the project in Godot editor to import audio files")
+
+func _play_button_click():
+    """Play button click sound"""
+    if button_click_player and button_click_player.stream:
+        button_click_player.play()
