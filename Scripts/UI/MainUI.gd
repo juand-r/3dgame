@@ -108,10 +108,12 @@ func _input(event):
             # In menus: go back to welcome screen
             show_welcome_screen()
     
-    # Handle F11 for fullscreen toggle and F10 for VSync toggle
+    # Handle F11 for fullscreen toggle and F9 for dev window toggle
     if event is InputEventKey and event.pressed:
         if event.keycode == KEY_F11:
             toggle_fullscreen()
+        elif event.keycode == KEY_F9:
+            toggle_dev_window()
         elif event.keycode == KEY_F10:
             toggle_vsync()
 
@@ -627,6 +629,15 @@ func toggle_vsync():
     if vsync_toggle:
         vsync_toggle.button_pressed = !vsync_toggle.button_pressed
         _on_vsync_toggled(vsync_toggle.button_pressed)
+
+func toggle_dev_window():
+    """Toggle between a small dev window (800x600) and player-friendly size (1920x1080 windowed)"""
+    var window = get_window()
+    var current_size = window.size
+    var target_size = Vector2i(800, 600) if current_size == Vector2i(1920, 1080) else Vector2i(1920, 1080)
+    
+    window.size = target_size
+    GameEvents.log_info("Dev window toggled to %s" % target_size)
 
 # ============================================================================
 # GAME EVENT HANDLERS (Legacy - kept for compatibility)
