@@ -49,12 +49,28 @@ shape = SubResource("BoxShape3D_1rv39")
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("1_8x7nh")
 
-[node name="Background" type="ColorRect" parent="UI"]
+[node name="MenuBackground" type="Control" parent="UI"]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
+
+[node name="BackgroundImage" type="TextureRect" parent="UI/MenuBackground"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+expand_mode = 1
+stretch_mode = 6
+
+[node name="BackgroundOverlay" type="ColorRect" parent="UI/MenuBackground"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.3)
+mouse_filter = 2
 
 [node name="MenuSystem" type="Control" parent="UI"]
 layout_mode = 3

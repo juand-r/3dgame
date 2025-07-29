@@ -42,6 +42,10 @@ extends CanvasLayer
 # Button Click Sound Player
 @onready var button_click_player = $"../ButtonClickPlayer"
 
+# Background Elements
+@onready var background_image = $MenuBackground/BackgroundImage
+@onready var menu_background = $MenuBackground
+
 # Graphics Controls
 @onready var resolution_option = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/ResolutionContainer/ResolutionOption
 @onready var fullscreen_toggle = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/FullscreenContainer/FullscreenToggle
@@ -85,6 +89,9 @@ func _ready():
     
     # Setup button click sound
     _setup_button_click_sound()
+    
+    # Setup background image
+    _setup_background()
     
     GameEvents.log_info("MainUI initialized - Multi-screen menu system")
     
@@ -693,19 +700,23 @@ func _update_ui_state():
             status_text = "Ready"
             menu_system.visible = true
             game_hud.visible = false
+            menu_background.visible = true
         GameManager.GameState.CONNECTING:
             status_text = "Connecting..."
             menu_system.visible = true
             game_hud.visible = false
+            menu_background.visible = true
         GameManager.GameState.IN_GAME:
             status_text = "In Game"
             menu_system.visible = false
             game_hud.visible = true
+            menu_background.visible = false
             current_menu_state = MenuState.IN_GAME
         GameManager.GameState.DISCONNECTED:
             status_text = "Disconnected"
             menu_system.visible = true
             game_hud.visible = false
+            menu_background.visible = true
             # Return to appropriate menu based on mode
             if GameManager.single_player_mode:
                 show_welcome_screen()  # Single player returns to main menu
@@ -855,3 +866,23 @@ func _play_button_click():
     """Play button click sound"""
     if button_click_player and button_click_player.stream:
         button_click_player.play()
+
+func _setup_background():
+    """Load and setup the background image"""
+    if not background_image:
+        GameEvents.log_error("Background image node not found")
+        return
+        
+    var background_path = "res://Assets/wizards.png"
+    
+    # Check if file exists and is imported
+    if ResourceLoader.exists(background_path):
+        var texture = ResourceLoader.load(background_path)
+        if texture:
+            background_image.texture = texture
+            GameEvents.log_info("Background image loaded from %s" % background_path)
+        else:
+            GameEvents.log_error("Failed to load background image from %s" % background_path)
+    else:
+        GameEvents.log_error("Background image file not found or not imported: %s" % background_path)
+        GameEvents.log_info("Please open the project in Godot editor to import the image")
