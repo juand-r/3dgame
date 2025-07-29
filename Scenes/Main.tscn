@@ -400,6 +400,12 @@ layout_mode = 2
 text = "← Back to Settings"
 custom_minimum_size = Vector2(300, 40)
 
+[node name="MasterVolumeFeedback" type="AudioStreamPlayer" parent="UI/MenuSystem/SettingsScreen/AudioPanel"]
+bus = "Master"
+
+[node name="SFXVolumeFeedback" type="AudioStreamPlayer" parent="UI/MenuSystem/SettingsScreen/AudioPanel"]
+bus = "SFX"
+
 [node name="GraphicsPanel" type="Control" parent="UI/MenuSystem/SettingsScreen"]
 visible = false
 layout_mode = 1

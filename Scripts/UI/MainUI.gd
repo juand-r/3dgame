@@ -29,6 +29,10 @@ extends CanvasLayer
 @onready var sfx_volume_slider = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/SFXVolumeContainer/SFXVolumeSlider
 @onready var sfx_volume_value = $MenuSystem/SettingsScreen/AudioPanel/AudioContainer/SFXVolumeContainer/SFXVolumeValue
 
+# Audio Feedback Players
+@onready var master_volume_feedback = $MenuSystem/SettingsScreen/AudioPanel/MasterVolumeFeedback
+@onready var sfx_volume_feedback = $MenuSystem/SettingsScreen/AudioPanel/SFXVolumeFeedback
+
 # Graphics Controls
 @onready var resolution_option = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/ResolutionContainer/ResolutionOption
 @onready var fullscreen_toggle = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/FullscreenContainer/FullscreenToggle
@@ -338,6 +342,42 @@ func _setup_audio_controls():
     sfx_percent = max(0, min(100, sfx_percent))
     sfx_volume_slider.value = sfx_percent
     sfx_volume_value.text = str(sfx_percent) + "%"
+    
+    # Setup volume feedback sounds
+    _setup_volume_feedback_sounds()
+
+func _setup_volume_feedback_sounds():
+    """Create simple beep sounds for volume feedback"""
+    var beep_sound = _create_beep_sound()
+    master_volume_feedback.stream = beep_sound
+    sfx_volume_feedback.stream = beep_sound
+
+func _create_beep_sound() -> AudioStreamWAV:
+    """Create a simple sine wave beep sound"""
+    var audio_stream = AudioStreamWAV.new()
+    
+    # Create a short 440Hz sine wave (musical note A4)
+    var sample_rate = 22050
+    var duration = 0.1  # 100ms
+    var frequency = 440.0  # A4 note
+    var sample_count = int(sample_rate * duration)
+    
+    var data = PackedByteArray()
+    for i in range(sample_count):
+        var t = float(i) / sample_rate
+        var sample = sin(2.0 * PI * frequency * t) * 0.3  # 30% volume to avoid being too loud
+        # Convert float sample to 16-bit integer
+        var sample_16 = int(sample * 32767)
+        # Add as little-endian 16-bit data
+        data.append(sample_16 & 0xFF)
+        data.append((sample_16 >> 8) & 0xFF)
+    
+    audio_stream.data = data
+    audio_stream.format = AudioStreamWAV.FORMAT_16_BITS
+    audio_stream.mix_rate = sample_rate
+    audio_stream.stereo = false
+    
+    return audio_stream
 
 func _setup_graphics_controls():
     """Setup graphics controls with current values"""
@@ -387,6 +427,10 @@ func _on_master_volume_changed(value: float):
     master_volume_value.text = str(int(value)) + "%"
     _save_audio_setting("master_volume", value)
     GameEvents.log_info("Master volume set to %d%%" % int(value))
+    
+    # Play volume feedback beep on Master bus
+    if master_volume_feedback and master_volume_feedback.stream:
+        master_volume_feedback.play()
 
 func _on_music_volume_changed(value: float):
     """Handle music volume slider change"""
@@ -403,6 +447,10 @@ func _on_sfx_volume_changed(value: float):
     sfx_volume_value.text = str(int(value)) + "%"
     _save_audio_setting("sfx_volume", value)
     GameEvents.log_info("SFX volume set to %d%%" % int(value))
+    
+    # Play volume feedback beep on SFX bus
+    if sfx_volume_feedback and sfx_volume_feedback.stream:
+        sfx_volume_feedback.play()
 
 # ============================================================================
 # GRAPHICS CONTROL HANDLERS
