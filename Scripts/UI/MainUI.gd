@@ -33,6 +33,12 @@ extends CanvasLayer
 @onready var master_volume_feedback = $MenuSystem/SettingsScreen/AudioPanel/MasterVolumeFeedback
 @onready var sfx_volume_feedback = $MenuSystem/SettingsScreen/AudioPanel/SFXVolumeFeedback
 
+# Menu Music Player
+@onready var menu_music_player = $"../MenuMusicPlayer"
+
+# Game Music Player
+@onready var game_music_player = $"../GameMusicPlayer"
+
 # Graphics Controls
 @onready var resolution_option = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/ResolutionContainer/ResolutionOption
 @onready var fullscreen_toggle = $MenuSystem/SettingsScreen/GraphicsPanel/GraphicsContainer/FullscreenContainer/FullscreenToggle
@@ -65,23 +71,26 @@ enum MenuState {
 var current_menu_state: MenuState = MenuState.WELCOME
 
 func _ready():
+    _load_settings()
+    _initialize_settings_ui()
+    
+    # Setup menu music
+    _setup_menu_music()
+    
+    # Setup game music
+    _setup_game_music()
+    
     GameEvents.log_info("MainUI initialized - Multi-screen menu system")
+    
+    # Initialize UI state and start menu music
+    _update_ui_state()
+    _start_menu_music()
     
     # Connect to game events
     GameEvents.game_state_changed.connect(_on_game_state_changed)
     GameEvents.player_connected.connect(_on_player_connected)
     GameEvents.player_disconnected.connect(_on_player_disconnected)
     GameEvents.connection_status_updated.connect(_on_connection_status_updated)
-    
-    # Load and apply settings
-    _load_settings()
-    
-    # Initialize settings UI
-    _initialize_settings_ui()
-    
-    # Initialize UI state
-    show_welcome_screen()
-    _update_ui_state()
 
 func _input(event):
     # Handle ESC key for back navigation and in-game menu
@@ -428,9 +437,7 @@ func _on_master_volume_changed(value: float):
     _save_audio_setting("master_volume", value)
     GameEvents.log_info("Master volume set to %d%%" % int(value))
     
-    # Play volume feedback beep on Master bus
-    if master_volume_feedback and master_volume_feedback.stream:
-        master_volume_feedback.play()
+    # No beep feedback for master volume to avoid confusion
 
 func _on_music_volume_changed(value: float):
     """Handle music volume slider change"""
@@ -608,9 +615,24 @@ func toggle_vsync():
 # GAME EVENT HANDLERS (Legacy - kept for compatibility)
 # ============================================================================
 
-func _on_game_state_changed(new_state):
+func _on_game_state_changed(new_state: GameManager.GameState):
+    """Handle game state changes for UI visibility"""
     GameEvents.log_info("UI: Game state changed to %s" % GameManager.GameState.keys()[new_state])
+    
+    # Update UI visibility using existing function
     _update_ui_state()
+    
+    # Handle menu music based on state
+    match new_state:
+        GameManager.GameState.MENU:
+            _start_menu_music()
+            _stop_game_music()
+        GameManager.GameState.IN_GAME:
+            _stop_menu_music()
+            _start_game_music()
+        _:
+            # For CONNECTING and other states, don't change music
+            pass
 
 func _on_player_connected(player_data):
     GameEvents.log_info("UI: Player %s joined (ID: %d)" % [player_data.name, player_data.id])
@@ -716,3 +738,67 @@ func _show_game_maker_info():
     GameEvents.log_info("Game Maker: Future features - Terrain editing, Object placement, Texture painting")
     GameEvents.log_info("Game Maker: Save/Load custom maps, Share with friends")
     GameEvents.log_info("Game Maker: Press ESC or Back button to return to main menu")
+
+func _setup_menu_music():
+    """Load and setup the menu music player"""
+    if not menu_music_player:
+        GameEvents.log_error("Menu music player not found")
+        return
+        
+    var music_path = "res://Audio/awesomeness.wav"
+    
+    # Check if file exists and is imported
+    if ResourceLoader.exists(music_path):
+        var music_stream = ResourceLoader.load(music_path)
+        if music_stream:
+            menu_music_player.stream = music_stream
+            GameEvents.log_info("Menu music loaded from %s" % music_path)
+        else:
+            GameEvents.log_error("Failed to load menu music from %s" % music_path)
+    else:
+        GameEvents.log_error("Menu music file not found or not imported: %s" % music_path)
+        GameEvents.log_info("Please open the project in Godot editor to import audio files")
+
+func _setup_game_music():
+    """Load and setup the game music player"""
+    if not game_music_player:
+        GameEvents.log_error("Game music player not found")
+        return
+        
+    var music_path = "res://Audio/Midnight-HQ.wav"
+    
+    # Check if file exists and is imported
+    if ResourceLoader.exists(music_path):
+        var music_stream = ResourceLoader.load(music_path)
+        if music_stream:
+            game_music_player.stream = music_stream
+            GameEvents.log_info("Game music loaded from %s" % music_path)
+        else:
+            GameEvents.log_error("Failed to load game music from %s" % music_path)
+    else:
+        GameEvents.log_error("Game music file not found or not imported: %s" % music_path)
+        GameEvents.log_info("Please open the project in Godot editor to import audio files")
+
+func _start_menu_music():
+    """Start playing menu music if it's loaded and not already playing"""
+    if menu_music_player and menu_music_player.stream and not menu_music_player.playing:
+        menu_music_player.play()
+        GameEvents.log_info("Menu music started")
+
+func _stop_menu_music():
+    """Stop playing menu music"""
+    if menu_music_player and menu_music_player.playing:
+        menu_music_player.stop()
+        GameEvents.log_info("Menu music stopped")
+
+func _start_game_music():
+    """Start playing game music if it's loaded and not already playing"""
+    if game_music_player and game_music_player.stream and not game_music_player.playing:
+        game_music_player.play()
+        GameEvents.log_info("Game music started")
+
+func _stop_game_music():
+    """Stop playing game music"""
+    if game_music_player and game_music_player.playing:
+        game_music_player.stop()
+        GameEvents.log_info("Game music stopped")

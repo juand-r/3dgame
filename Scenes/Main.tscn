@@ -15,6 +15,14 @@ ambient_light_energy = 0.3
 
 [node name="Main" type="Node3D"]
 
+[node name="MenuMusicPlayer" type="AudioStreamPlayer" parent="."]
+bus = "Music"
+autoplay = false
+
+[node name="GameMusicPlayer" type="AudioStreamPlayer" parent="."]
+bus = "Music"
+autoplay = false
+
 [node name="Environment" type="Node3D" parent="."]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Environment"]
