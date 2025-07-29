@@ -1,4 +1,4 @@
-# 🔧 To Fix Later - Active TODOs
+t stat# 🔧 To Fix Later - Active TODOs
 
 ## 🚨 **High Priority**
 
@@ -51,17 +51,17 @@ func _on_quality_selected(index: int):
 ### 3. **ESC In-Game Settings Menu**
 **Location:** `Scripts/UI/MainUI.gd:105`
 **Issue:** ESC during gameplay shows "TODO" message instead of opening settings
+**Status:** **PARTIALLY RESOLVED** - P key now returns to menu
 **TODO:** Implement in-game settings overlay
 
-```gdscript
-GameEvents.log_info("ESC pressed in-game - Settings menu (TODO)")
-```
+**Current Behavior:**
+- **ESC** → Release/capture mouse cursor (working correctly)
+- **P** → Return to menu (✅ implemented and working)
 
-**Requirements:**
+**Remaining Work:**
 - Create overlay settings menu that appears during gameplay
 - Allow access to audio/graphics/controls settings while playing
-- Resume game when settings are closed
-- Handle ESC key properly (pause game, show menu)
+- Could use ESC when mouse is visible, or different key (M for menu?)
 
 ---
 

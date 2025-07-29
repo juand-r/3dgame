@@ -106,14 +106,20 @@ func _ready():
     GameEvents.connection_status_updated.connect(_on_connection_status_updated)
 
 func _input(event):
-    # Handle ESC key for back navigation and in-game menu
+    # Handle ESC for menu navigation and P for return to menu
     if event.is_action_pressed("ui_cancel"):  # ESC key
-        if GameManager and GameManager.get_current_state() == GameManager.GameState.IN_GAME:
-            # In-game: show settings menu (future implementation)
+        if current_menu_state == MenuState.IN_GAME:
+            # ESC in-game just shows TODO message (mouse capture handled by PlayerController)
             GameEvents.log_info("ESC pressed in-game - Settings menu (TODO)")
         elif current_menu_state != MenuState.WELCOME:
-            # In menus: go back to welcome screen
+            # ESC in menus = go back to main menu
             show_welcome_screen()
+    
+    # Handle P key for pause/return to menu during gameplay
+    if event is InputEventKey and event.pressed and event.keycode == KEY_P:
+        if current_menu_state == MenuState.IN_GAME:
+            GameEvents.log_info("P pressed - Returning to menu")
+            GameManager.disconnect_game()  # This will return to appropriate menu
     
     # Handle F11 for fullscreen toggle and F9 for dev window toggle
     if event is InputEventKey and event.pressed:
