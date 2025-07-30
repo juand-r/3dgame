@@ -87,7 +87,7 @@ void sky() {
     
     // Add clouds only above horizon
     if (EYEDIR.y > 0.0) {
-        vec2 sky_uv = EYEDIR.xz / max(EYEDIR.y, 0.1);
+        vec2 sky_uv = EYEDIR.xz / max(EYEDIR.y, 0.05);
         
         // Moving clouds
         vec2 cloud_uv1 = sky_uv * 3.0 + vec2(TIME * cloud_speed, 0.0);
