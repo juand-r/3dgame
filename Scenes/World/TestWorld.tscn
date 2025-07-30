@@ -37,7 +37,7 @@ code = "shader_type sky;
 render_mode use_debanding;
 
 // Day/Night cycle settings
-uniform float day_cycle_speed : hint_range(0.001, 0.1) = 0.08;
+uniform float day_cycle_speed : hint_range(0.001, 0.5) = 0.3;
 uniform vec3 day_sky_top : source_color = vec3(0.1, 0.4, 0.8);
 uniform vec3 day_sky_horizon : source_color = vec3(0.6, 0.8, 1.0);
 uniform vec3 night_sky_top : source_color = vec3(0.02, 0.02, 0.1);
@@ -51,6 +51,12 @@ uniform float cloud_speed : hint_range(0.0, 2.0) = 0.3;
 uniform vec3 cloud_day_color : source_color = vec3(1.0, 1.0, 1.0);
 uniform vec3 cloud_night_color : source_color = vec3(0.3, 0.3, 0.4);
 uniform vec3 cloud_sunset_color : source_color = vec3(1.0, 0.7, 0.5);
+
+// Sun and moon settings
+uniform vec3 sun_color : source_color = vec3(1.0, 0.9, 0.7);
+uniform vec3 moon_color : source_color = vec3(0.8, 0.8, 1.0);
+uniform float sun_size : hint_range(0.01, 0.1) = 0.06;
+uniform float moon_size : hint_range(0.01, 0.1) = 0.03;
 
 // Simple hash function
 float hash(vec2 p) {
@@ -85,30 +91,79 @@ float fbm(vec2 p) {
 }
 
 void sky() {
-    // Calculate day/night cycle
-    float day_cycle = sin(TIME * day_cycle_speed);  // -1 to 1
-    float sun_height = day_cycle;
+    // Calculate sun angle - continuous rotation
+    float sun_angle = TIME * day_cycle_speed;  // Continuous rotation
     
-    // Calculate transition factors
+    // Sun position using simple sin/cos (FULL 360° rotation)
+    vec3 sun_direction = vec3(
+        cos(sun_angle),         // X: east-west movement  
+        sin(sun_angle),         // Y: vertical position
+        0.0                     // Z: no depth
+    );
+    sun_direction = normalize(sun_direction);
+    
+    // Synchronize day/night with sun height
+    float sun_height = sun_direction.y;  // -1 to 1 based on sun's actual position
+    
+    // Calculate day/night factors based on sun position
     float day_factor = clamp(sun_height, 0.0, 1.0);  // 0 to 1, day strength
-    float sunset_factor = 1.0 - abs(sun_height);  // Peak at transitions
+    float sunset_factor = 1.0 - abs(sun_height);  // Peak at horizons (sun_height = 0)
     sunset_factor = pow(sunset_factor, 1.5);  // Gentler sunset window
     
-    // Basic sky gradient - smoother curve
+    // Basic sky gradient
     float horizon_factor = clamp(EYEDIR.y, 0.0, 1.0);
-    horizon_factor = smoothstep(0.0, 1.0, horizon_factor);  // Smoother than pow()
+    horizon_factor = smoothstep(0.0, 1.0, horizon_factor);
     horizon_factor = pow(horizon_factor, sky_curve);
     
-    // Calculate sky colors based on time of day
+    // Calculate sky colors based on sun position
     vec3 current_sky_top = mix(night_sky_top, day_sky_top, day_factor);
     vec3 current_sky_horizon = mix(night_sky_horizon, day_sky_horizon, day_factor);
     
     vec3 sky_color = mix(current_sky_horizon, current_sky_top, horizon_factor);
     
-    // Add sunset/sunrise colors during transitions - NO HARD BOUNDARIES
-    float sunset_vertical_fade = smoothstep(0.6, -0.2, EYEDIR.y);  // Fade from top to horizon
+    // Add sunset/sunrise colors during transitions
+    float sunset_vertical_fade = smoothstep(0.6, -0.2, EYEDIR.y);
     float sunset_blend = sunset_factor * sunset_vertical_fade;
     sky_color = mix(sky_color, sunset_color, sunset_blend * 0.5);
+    
+    // Add sun (visible only when above horizon)
+    if (sun_height > -0.1) {  // Show sun when above horizon
+        
+        // Calculate if we're looking at the sun
+        float sun_dot = dot(EYEDIR, sun_direction);
+        
+        // Sun disc with smooth edges
+        float sun_distance = acos(clamp(sun_dot, -1.0, 1.0));
+        float sun_disc = 1.0 - smoothstep(sun_size * 0.5, sun_size, sun_distance);
+        float sun_glow = 1.0 - smoothstep(sun_size, sun_size * 4.0, sun_distance);
+        
+        // Sun brightness based on its height above horizon
+        float sun_brightness = clamp((sun_height + 0.1) * 2.0, 0.0, 1.0);  // Bright when high, dim near horizon
+        
+        // Add sun to sky with proper brightness synchronization
+        sky_color = mix(sky_color, sun_color, sun_disc * sun_brightness);
+        sky_color = mix(sky_color, sun_color * 0.3, sun_glow * sun_brightness * 0.4);
+    }
+    
+    // Add moon (static position during night)
+    float night_factor = clamp(-sun_height, 0.0, 1.0);  // 0 to 1, night strength
+    if (night_factor > 0.1) {
+        // Moon in opposite position to sun
+        vec3 moon_direction = vec3(0.0, 0.6, -0.8);  // Fixed position for now
+        moon_direction = normalize(moon_direction);
+        
+        // Calculate if we're looking at the moon
+        float moon_dot = dot(EYEDIR, moon_direction);
+        
+        // Moon disc with smooth edges
+        float moon_distance = acos(clamp(moon_dot, -1.0, 1.0));
+        float moon_disc = 1.0 - smoothstep(moon_size * 0.5, moon_size, moon_distance);
+        float moon_glow = 1.0 - smoothstep(moon_size, moon_size * 2.0, moon_distance);
+        
+        // Add moon to sky
+        sky_color = mix(sky_color, moon_color, moon_disc * night_factor * 0.8);
+        sky_color = mix(sky_color, moon_color * 0.2, moon_glow * night_factor * 0.3);
+    }
     
     // Add clouds (continuous movement regardless of day/night)
     if (EYEDIR.y > 0.0) {
