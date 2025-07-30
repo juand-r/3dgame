@@ -32,17 +32,90 @@ roughness = 0.6
 albedo_color = Color(0.8, 0.6, 0.4, 1)
 roughness = 0.7
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
-sky_top_color = Color(0.3, 0.6, 1, 1)
-sky_horizon_color = Color(0.8, 0.9, 1, 1)
-ground_horizon_color = Color(0.7, 0.8, 0.9, 1)
-ground_bottom_color = Color(0.4, 0.5, 0.6, 1)
-sun_angle_max = 45.0
-sun_curve = 0.15
-use_debanding = true
+[sub_resource type="Shader" id="Shader_1"]
+code = "shader_type sky;
+render_mode use_debanding;
+
+// Basic sky colors
+uniform vec4 sky_top_color : source_color = vec4(0.1, 0.4, 0.8, 1.0);
+uniform vec4 sky_horizon_color : source_color = vec4(0.6, 0.7, 0.9, 1.0);
+uniform float sky_curve : hint_range(0.1, 2.0) = 0.5;
+
+// Cloud settings
+uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.6;
+uniform float cloud_speed : hint_range(0.0, 2.0) = 0.3;
+uniform vec3 cloud_color : source_color = vec3(1.0, 1.0, 1.0);
+
+// Simple hash function
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+// Smooth noise
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    
+    return mix(
+        mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+        f.y
+    );
+}
+
+// Fractal noise for clouds
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    
+    for (int i = 0; i < 3; i++) {
+        value += amplitude * noise(p);
+        p *= 2.0;
+        amplitude *= 0.5;
+    }
+    
+    return value;
+}
+
+void sky() {
+    // Basic sky gradient
+    float horizon_factor = clamp(EYEDIR.y, 0.0, 1.0);
+    horizon_factor = pow(horizon_factor, sky_curve);
+    
+    vec3 sky_color = mix(sky_horizon_color.rgb, sky_top_color.rgb, horizon_factor);
+    
+    // Add clouds only above horizon
+    if (EYEDIR.y > 0.0) {
+        vec2 sky_uv = EYEDIR.xz / max(EYEDIR.y, 0.1);
+        
+        // Moving clouds
+        vec2 cloud_uv1 = sky_uv * 3.0 + vec2(TIME * cloud_speed, 0.0);
+        vec2 cloud_uv2 = sky_uv * 5.0 + vec2(-TIME * cloud_speed * 0.7, TIME * cloud_speed * 0.3);
+        
+        float clouds = fbm(cloud_uv1) * 0.7 + fbm(cloud_uv2) * 0.3;
+        clouds = smoothstep(1.0 - cloud_coverage, 1.0, clouds);
+        
+        // Fade clouds near horizon
+        clouds *= smoothstep(0.0, 0.3, EYEDIR.y);
+        
+        // Mix clouds with sky
+        sky_color = mix(sky_color, cloud_color, clouds * 0.8);
+    }
+    
+    // Ground color
+    if (EYEDIR.y <= 0.0) {
+        sky_color = sky_horizon_color.rgb * 0.3;
+    }
+    
+    COLOR.rgb = sky_color;
+}"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
+shader = SubResource("Shader_1")
 
 [sub_resource type="Sky" id="Sky_1"]
-sky_material = SubResource("ProceduralSkyMaterial_1")
+sky_material = SubResource("ShaderMaterial_1")
 
 [sub_resource type="Environment" id="Environment_1"]
 background_mode = 2
