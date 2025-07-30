@@ -36,15 +36,21 @@ roughness = 0.7
 code = "shader_type sky;
 render_mode use_debanding;
 
-// Basic sky colors
-uniform vec4 sky_top_color : source_color = vec4(0.1, 0.4, 0.8, 1.0);
-uniform vec4 sky_horizon_color : source_color = vec4(0.6, 0.7, 0.9, 1.0);
+// Day/Night cycle settings
+uniform float day_cycle_speed : hint_range(0.001, 0.1) = 0.08;
+uniform vec3 day_sky_top : source_color = vec3(0.1, 0.4, 0.8);
+uniform vec3 day_sky_horizon : source_color = vec3(0.6, 0.8, 1.0);
+uniform vec3 night_sky_top : source_color = vec3(0.02, 0.02, 0.1);
+uniform vec3 night_sky_horizon : source_color = vec3(0.1, 0.1, 0.2);
+uniform vec3 sunset_color : source_color = vec3(1.0, 0.5, 0.2);
 uniform float sky_curve : hint_range(0.1, 2.0) = 0.5;
 
-// Cloud settings
+// Cloud settings (independent of day/night)
 uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.6;
 uniform float cloud_speed : hint_range(0.0, 2.0) = 0.3;
-uniform vec3 cloud_color : source_color = vec3(1.0, 1.0, 1.0);
+uniform vec3 cloud_day_color : source_color = vec3(1.0, 1.0, 1.0);
+uniform vec3 cloud_night_color : source_color = vec3(0.3, 0.3, 0.4);
+uniform vec3 cloud_sunset_color : source_color = vec3(1.0, 0.7, 0.5);
 
 // Simple hash function
 float hash(vec2 p) {
@@ -79,17 +85,36 @@ float fbm(vec2 p) {
 }
 
 void sky() {
-    // Basic sky gradient
+    // Calculate day/night cycle
+    float day_cycle = sin(TIME * day_cycle_speed);  // -1 to 1
+    float sun_height = day_cycle;
+    
+    // Calculate transition factors
+    float day_factor = clamp(sun_height, 0.0, 1.0);  // 0 to 1, day strength
+    float sunset_factor = 1.0 - abs(sun_height);  // Peak at transitions
+    sunset_factor = pow(sunset_factor, 1.5);  // Gentler sunset window
+    
+    // Basic sky gradient - smoother curve
     float horizon_factor = clamp(EYEDIR.y, 0.0, 1.0);
+    horizon_factor = smoothstep(0.0, 1.0, horizon_factor);  // Smoother than pow()
     horizon_factor = pow(horizon_factor, sky_curve);
     
-    vec3 sky_color = mix(sky_horizon_color.rgb, sky_top_color.rgb, horizon_factor);
+    // Calculate sky colors based on time of day
+    vec3 current_sky_top = mix(night_sky_top, day_sky_top, day_factor);
+    vec3 current_sky_horizon = mix(night_sky_horizon, day_sky_horizon, day_factor);
     
-    // Add clouds only above horizon
+    vec3 sky_color = mix(current_sky_horizon, current_sky_top, horizon_factor);
+    
+    // Add sunset/sunrise colors during transitions - NO HARD BOUNDARIES
+    float sunset_vertical_fade = smoothstep(0.6, -0.2, EYEDIR.y);  // Fade from top to horizon
+    float sunset_blend = sunset_factor * sunset_vertical_fade;
+    sky_color = mix(sky_color, sunset_color, sunset_blend * 0.5);
+    
+    // Add clouds (continuous movement regardless of day/night)
     if (EYEDIR.y > 0.0) {
         vec2 sky_uv = EYEDIR.xz / max(EYEDIR.y, 0.05);
         
-        // Moving clouds
+        // Moving clouds - same logic as before for smooth movement
         vec2 cloud_uv1 = sky_uv * 3.0 + vec2(TIME * cloud_speed, 0.0);
         vec2 cloud_uv2 = sky_uv * 5.0 + vec2(-TIME * cloud_speed * 0.7, TIME * cloud_speed * 0.3);
         
@@ -99,13 +124,25 @@ void sky() {
         // Fade clouds near horizon
         clouds *= smoothstep(0.0, 0.3, EYEDIR.y);
         
+        // Dynamic cloud colors based on time of day
+        vec3 current_cloud_color = mix(cloud_night_color, cloud_day_color, day_factor);
+        
+        // Add sunset colors to clouds during transitions
+        if (sunset_factor > 0.3) {
+            current_cloud_color = mix(current_cloud_color, cloud_sunset_color, sunset_factor * 0.8);
+        }
+        
         // Mix clouds with sky
-        sky_color = mix(sky_color, cloud_color, clouds * 0.8);
+        sky_color = mix(sky_color, current_cloud_color, clouds * 0.8);
     }
     
-    // Ground color
+    // Ground color (below horizon)
     if (EYEDIR.y <= 0.0) {
-        sky_color = sky_horizon_color.rgb * 0.3;
+        vec3 ground_color = mix(night_sky_horizon, day_sky_horizon, day_factor) * 0.3;
+        if (sunset_factor > 0.2) {
+            ground_color = mix(ground_color, sunset_color * 0.4, sunset_factor);
+        }
+        sky_color = ground_color;
     }
     
     COLOR.rgb = sky_color;
