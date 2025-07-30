@@ -6,6 +6,12 @@
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 height = 1.8
 
+[sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_1"]
+dof_blur_far_enabled = true
+dof_blur_far_distance = 100.0
+dof_blur_far_transition = 50.0
+dof_blur_near_enabled = false
+
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
 script = ExtResource("1_8xmnd")
@@ -20,3 +26,4 @@ shape = SubResource("CapsuleShape3D_1")
 
 [node name="Camera3D" type="Camera3D" parent="CameraPivot"]
 transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 1.5, 3)
+attributes = SubResource("CameraAttributesPractical_1")

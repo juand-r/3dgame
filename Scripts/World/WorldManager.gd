@@ -239,15 +239,15 @@ func create_desert_pbr_material() -> StandardMaterial3D:
 		material.ao_light_affect = 1.0
 		print("[WORLD] ✅ Applied desert AO map")
 	
-	# Apply height/displacement map
-	if ResourceLoader.exists(textures.height):
-		material.heightmap_enabled = true
-		material.heightmap_texture = load(textures.height)
-		material.heightmap_scale = 0.1
-		print("[WORLD] ✅ Applied desert height map")
+	# Apply height/displacement map (disabled to reduce crisp detail at distance)
+	# if ResourceLoader.exists(textures.height):
+	#	material.heightmap_enabled = true
+	#	material.heightmap_texture = load(textures.height)
+	#	material.heightmap_scale = 0.1
+	#	print("[WORLD] ✅ Applied desert height map")
 	
-	# Set up UV tiling for better coverage
-	material.uv1_scale = Vector3(50.0, 50.0, 1.0)  # Tile the texture
+	# Set up UV tiling for better coverage (moderate tiling for balanced detail)
+	material.uv1_scale = Vector3(25.0, 25.0, 1.0)  # Balanced texture tiling
 	
 	return material
 
