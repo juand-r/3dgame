@@ -54,6 +54,7 @@ uniform vec3 cloud_sunset_color : source_color = vec3(1.0, 0.7, 0.5);
 
 // Sun and moon settings
 uniform vec3 sun_color : source_color = vec3(1.0, 0.9, 0.7);
+uniform vec3 sun_sunset_color : source_color = vec3(1.0, 0.4, 0.1);
 uniform vec3 moon_color : source_color = vec3(0.8, 0.8, 1.0);
 uniform float sun_size : hint_range(0.01, 0.1) = 0.06;
 uniform float moon_size : hint_range(0.01, 0.1) = 0.03;
@@ -140,9 +141,13 @@ void sky() {
         // Sun brightness based on its height above horizon
         float sun_brightness = clamp((sun_height + 0.1) * 2.0, 0.0, 1.0);  // Bright when high, dim near horizon
         
-        // Add sun to sky with proper brightness synchronization
-        sky_color = mix(sky_color, sun_color, sun_disc * sun_brightness);
-        sky_color = mix(sky_color, sun_color * 0.3, sun_glow * sun_brightness * 0.4);
+        // Calculate sunset color transition (full red at horizon)
+        float sun_sunset_factor = clamp(1.0 - sun_height * 2.0, 0.0, 1.0);  // Full red when sun_height = 0 (horizon)
+        vec3 current_sun_color = mix(sun_color, sun_sunset_color, sun_sunset_factor);
+        
+        // Add sun to sky with sunset color transition
+        sky_color = mix(sky_color, current_sun_color, sun_disc * sun_brightness);
+        sky_color = mix(sky_color, current_sun_color * 0.3, sun_glow * sun_brightness * 0.4);
     }
     
     // Add moon (static position during night)
