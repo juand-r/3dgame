@@ -133,10 +133,14 @@ void sky() {
         // Calculate if we're looking at the sun
         float sun_dot = dot(EYEDIR, sun_direction);
         
-        // Sun disc with smooth edges
+        // Dynamic sun size - bigger at sunset for dramatic effect
+        float sun_height_factor = clamp(1.0 - sun_height * 1.5, 0.6, 2.5);  // Bigger when lower
+        float dynamic_sun_size = sun_size * sun_height_factor;
+        
+        // Sun disc with smooth edges using dynamic size
         float sun_distance = acos(clamp(sun_dot, -1.0, 1.0));
-        float sun_disc = 1.0 - smoothstep(sun_size * 0.5, sun_size, sun_distance);
-        float sun_glow = 1.0 - smoothstep(sun_size, sun_size * 4.0, sun_distance);
+        float sun_disc = 1.0 - smoothstep(dynamic_sun_size * 0.5, dynamic_sun_size, sun_distance);
+        float sun_glow = 1.0 - smoothstep(dynamic_sun_size, dynamic_sun_size * 4.0, sun_distance);
         
         // Sun brightness based on its height above horizon
         float sun_brightness = clamp((sun_height + 0.1) * 2.0, 0.0, 1.0);  // Bright when high, dim near horizon
